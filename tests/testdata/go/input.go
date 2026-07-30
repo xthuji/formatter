@@ -1,0 +1,11 @@
+package main
+
+import "fmt"
+func main(){
+x:=1
+y:=2
+fmt.Println("sum:",x+y)
+if x>0{
+fmt.Println("positive")
+}
+}

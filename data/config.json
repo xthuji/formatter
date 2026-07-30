@@ -1,0 +1,857 @@
+{
+  "aliases": {
+    "bash": "shell",
+    "sh": "shell",
+    "yml": "yaml",
+    "zsh": "shell"
+  },
+  "binary": {
+    "runtimes": [
+      {
+        "name": "node",
+        "exe": "node",
+        "version_cmd": [
+          "--version"
+        ],
+        "detect_exes": [
+          "node"
+        ],
+        "install_cmds": {
+          "darwin": [
+            "brew",
+            "install",
+            "node"
+          ],
+          "linux": [
+            "sh",
+            "-c",
+            "command -v apt-get \u003e/dev/null \u0026\u0026 apt-get install -y nodejs || (curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \u0026\u0026 apt-get install -y nodejs)"
+          ]
+        }
+      },
+      {
+        "name": "python",
+        "exe": "python3",
+        "version_cmd": [
+          "--version"
+        ],
+        "detect_exes": [
+          "python3",
+          "python"
+        ],
+        "install_cmds": {
+          "darwin": [
+            "brew",
+            "install",
+            "python"
+          ],
+          "linux": [
+            "apt-get",
+            "install",
+            "-y",
+            "python3"
+          ]
+        }
+      },
+      {
+        "name": "java",
+        "exe": "java",
+        "version_cmd": [
+          "-version"
+        ],
+        "detect_exes": [
+          "java"
+        ],
+        "install_cmds": {
+          "darwin": [
+            "brew",
+            "install",
+            "openjdk"
+          ],
+          "linux": [
+            "apt-get",
+            "install",
+            "-y",
+            "default-jre"
+          ]
+        }
+      },
+      {
+        "name": "ruby",
+        "exe": "ruby",
+        "version_cmd": [
+          "--version"
+        ],
+        "detect_exes": [
+          "ruby"
+        ],
+        "install_cmds": {
+          "darwin": [
+            "brew",
+            "install",
+            "ruby"
+          ],
+          "linux": [
+            "apt-get",
+            "install",
+            "-y",
+            "ruby"
+          ]
+        }
+      }
+    ],
+    "tools": [
+      {
+        "name": "oxfmt",
+        "languages": [
+          "javascript",
+          "typescript",
+          "css"
+        ],
+        "version": "0.61.0",
+        "executable": "oxfmt",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/oxc-project/oxc/releases/download/apps_v1.76.0/oxfmt-x86_64-apple-darwin.tar.gz",
+          "darwin/arm64": "https://github.com/oxc-project/oxc/releases/download/apps_v1.76.0/oxfmt-aarch64-apple-darwin.tar.gz",
+          "linux/amd64": "https://github.com/oxc-project/oxc/releases/download/apps_v1.76.0/oxfmt-x86_64-unknown-linux-gnu.tar.gz",
+          "linux/arm64": "https://github.com/oxc-project/oxc/releases/download/apps_v1.76.0/oxfmt-aarch64-unknown-linux-gnu.tar.gz",
+          "windows/amd64": "https://github.com/oxc-project/oxc/releases/download/apps_v1.76.0/oxfmt-x86_64-pc-windows-msvc.zip"
+        },
+        "archive": "tar.gz",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "oxfmt-wrapper",
+        "languages": [
+          "javascript",
+          "typescript",
+          "css"
+        ],
+        "version": "1.0.0",
+        "executable": "oxfmt-wrapper",
+        "source": "preset",
+        "archive": "raw",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "rubocop",
+        "languages": [
+          "ruby"
+        ],
+        "version": "1.75.0",
+        "runtime": "ruby",
+        "executable": "rubocop",
+        "source": "install",
+        "install_cmds": {
+          "darwin": [
+            "gem",
+            "install",
+            "rubocop",
+            "--version",
+            "1.75.0"
+          ],
+          "linux": [
+            "gem",
+            "install",
+            "rubocop",
+            "--version",
+            "1.75.0"
+          ]
+        },
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "ruff",
+        "languages": [
+          "python"
+        ],
+        "version": "0.14.10",
+        "executable": "ruff",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/astral-sh/ruff/releases/download/{version}/ruff-x86_64-apple-darwin.tar.gz",
+          "darwin/arm64": "https://github.com/astral-sh/ruff/releases/download/{version}/ruff-aarch64-apple-darwin.tar.gz",
+          "linux/amd64": "https://github.com/astral-sh/ruff/releases/download/{version}/ruff-x86_64-unknown-linux-gnu.tar.gz",
+          "linux/arm64": "https://github.com/astral-sh/ruff/releases/download/{version}/ruff-aarch64-unknown-linux-gnu.tar.gz",
+          "windows/amd64": "https://github.com/astral-sh/ruff/releases/download/{version}/ruff-x86_64-pc-windows-msvc.zip"
+        },
+        "archive": "tar.gz",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "prettyplease-cli",
+        "languages": [
+          "rust"
+        ],
+        "version": "0.1.4",
+        "executable": "prettyplease-cli",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/formatter-tools/prettyplease-cli/releases/download/v{version}/prettyplease-darwin-amd64.tar.gz",
+          "darwin/arm64": "https://github.com/formatter-tools/prettyplease-cli/releases/download/v{version}/prettyplease-darwin-arm64.tar.gz",
+          "linux/amd64": "https://github.com/formatter-tools/prettyplease-cli/releases/download/v{version}/prettyplease-linux-amd64.tar.gz",
+          "windows/amd64": "https://github.com/formatter-tools/prettyplease-cli/releases/download/v{version}/prettyplease-windows-amd64.zip"
+        },
+        "archive": "tar.gz",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "shfmt",
+        "languages": [
+          "shell"
+        ],
+        "version": "3.10.0",
+        "executable": "shfmt",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/mvdan/sh/releases/download/v{version}/shfmt_v{version}_darwin_amd64",
+          "darwin/arm64": "https://github.com/mvdan/sh/releases/download/v{version}/shfmt_v{version}_darwin_arm64",
+          "linux/amd64": "https://github.com/mvdan/sh/releases/download/v{version}/shfmt_v{version}_linux_amd64",
+          "linux/arm64": "https://github.com/mvdan/sh/releases/download/v{version}/shfmt_v{version}_linux_arm64",
+          "windows/amd64": "https://github.com/mvdan/sh/releases/download/v{version}/shfmt_v{version}_windows_amd64.exe"
+        },
+        "archive": "raw",
+        "verify_cmd": "{exe} -version"
+      },
+      {
+        "name": "stylua",
+        "languages": [
+          "lua"
+        ],
+        "version": "2.0.1",
+        "executable": "stylua",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/JohnnyMorganz/StyLua/releases/download/v{version}/stylua-macos-x86_64.zip",
+          "darwin/arm64": "https://github.com/JohnnyMorganz/StyLua/releases/download/v{version}/stylua-macos-aarch64.zip",
+          "linux/amd64": "https://github.com/JohnnyMorganz/StyLua/releases/download/v{version}/stylua-linux-x86_64.zip",
+          "linux/arm64": "https://github.com/JohnnyMorganz/StyLua/releases/download/v{version}/stylua-linux-aarch64.zip",
+          "windows/amd64": "https://github.com/JohnnyMorganz/StyLua/releases/download/v{version}/stylua-windows-x86_64.zip"
+        },
+        "archive": "zip",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "scalafmt",
+        "languages": [
+          "scala"
+        ],
+        "version": "3.11.5",
+        "executable": "scalafmt",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/scalameta/scalafmt/releases/download/v{version}/scalafmt-x86_64-apple-darwin.zip",
+          "darwin/arm64": "https://github.com/scalameta/scalafmt/releases/download/v{version}/scalafmt-aarch64-apple-darwin.zip",
+          "linux/amd64": "https://github.com/scalameta/scalafmt/releases/download/v{version}/scalafmt-x86_64-pc-linux.zip",
+          "linux/arm64": "https://github.com/scalameta/scalafmt/releases/download/v{version}/scalafmt-aarch64-pc-linux.zip",
+          "windows/amd64": "https://github.com/scalameta/scalafmt/releases/download/v{version}/scalafmt-x86_64-pc-win32.zip"
+        },
+        "archive": "zip",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "google-java-format",
+        "languages": [
+          "java"
+        ],
+        "version": "1.23.0",
+        "runtime": "java",
+        "executable": "google-java-format.jar",
+        "source": "download",
+        "urls": {
+          "*": "https://github.com/google/google-java-format/releases/download/v{version}/google-java-format-{version}-all-deps.jar"
+        },
+        "archive": "raw",
+        "verify_cmd": "{runtime} -jar {exe} --version",
+        "run_cmd": "{runtime} -jar {exe}"
+      },
+      {
+        "name": "applescript-wrapper",
+        "languages": [
+          "applescript"
+        ],
+        "version": "1.0.0",
+        "executable": "applescript-wrapper",
+        "source": "preset",
+        "archive": "raw",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "java-wrapper",
+        "languages": [
+          "java"
+        ],
+        "version": "1.1.0",
+        "executable": "java-wrapper",
+        "source": "preset",
+        "archive": "raw",
+        "verify_cmd": "{exe} --version"
+      },
+      {
+        "name": "sleek",
+        "languages": [
+          "sql"
+        ],
+        "version": "0.5.0",
+        "executable": "sleek",
+        "source": "download",
+        "urls": {
+          "darwin/amd64": "https://github.com/nrempel/sleek/releases/download/v{version}/sleek-macos-x86_64",
+          "darwin/arm64": "https://github.com/nrempel/sleek/releases/download/v{version}/sleek-macos-aarch64",
+          "linux/amd64": "https://github.com/nrempel/sleek/releases/download/v{version}/sleek-linux-x86_64",
+          "windows/amd64": "https://github.com/nrempel/sleek/releases/download/v{version}/sleek-windows-x86_64.exe"
+        },
+        "archive": "raw",
+        "verify_cmd": "{exe} --version"
+      }
+    ]
+  },
+  "format": {
+    "line_ending": "\n",
+    "tab_width": 2
+  },
+  "highlight": {
+    "line_numbers": false,
+    "style": "eclipse",
+    "font_size": 14,
+    "compat_html": false
+  },
+  "languages": {
+    "applescript": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "applescript-wrapper"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": -1,
+        "customIndentFrom": {
+          "tab_width": -1
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".applescript",
+          ".scpt"
+        ]
+      }
+    },
+    "css": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "oxfmt-wrapper",
+        "cmd": [
+          "{ext}"
+        ]
+      },
+      "compressor": {
+        "backend": "native",
+        "tool": "css"
+      },
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 2
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".css",
+          ".scss",
+          ".less"
+        ]
+      }
+    },
+    "go": {
+      "formatter": {
+        "backend": "native",
+        "tool": "go"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": -1
+      },
+      "detection": {
+        "extensions": [
+          ".go"
+        ],
+        "shebangs": [
+          "^#!.*\\bgo run\\b"
+        ],
+        "content": [
+          "^\\s*package\\s+main\\b"
+        ],
+        "priority": 1
+      }
+    },
+    "html": {
+      "formatter": {
+        "backend": "native",
+        "tool": "html"
+      },
+      "compressor": {
+        "backend": "native",
+        "tool": "html"
+      },
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".html",
+          ".htm"
+        ],
+        "content": [
+          "^\\s*\u003c!DOCTYPE\\s+html",
+          "^\\s*\u003chtml[\\s\u003e]"
+        ],
+        "priority": 9
+      }
+    },
+    "ini": {
+      "formatter": {
+        "backend": "native",
+        "tool": "ini"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".ini",
+          ".conf",
+          ".cfg"
+        ]
+      }
+    },
+    "java": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "java-wrapper"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 4,
+        "customIndentFrom": {
+          "tab_width": 4
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".java"
+        ],
+        "content": [
+          "^\\s*package\\s+",
+          "\\bpublic\\s+(static\\s+)?(class|interface|enum|void)\\b",
+          "^\\s*import\\s+(org|com|net)\\."
+        ],
+        "priority": 2
+      }
+    },
+    "javascript": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "oxfmt-wrapper",
+        "cmd": [
+          "{ext}"
+        ]
+      },
+      "compressor": {
+        "backend": "native",
+        "tool": "js"
+      },
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 2
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".mjs",
+          ".cjs"
+        ],
+        "shebangs": [
+          "^#!.*\\bnode\\b"
+        ],
+        "content": [
+          "\\bfunction\\s+\\w+\\s*\\(",
+          "\\bconst\\s+\\w+\\s*=\\s*"
+        ],
+        "priority": 4
+      }
+    },
+    "json": {
+      "formatter": {
+        "backend": "native",
+        "tool": "json"
+      },
+      "compressor": {
+        "backend": "native",
+        "tool": "json"
+      },
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".json"
+        ],
+        "content": [
+          "^\\s*\\{[\\s\\n]*\"[^\"]+\"\\s*:"
+        ],
+        "priority": 11
+      }
+    },
+    "lua": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "stylua",
+        "cmd": [
+          "-",
+          "--indent-width",
+          "{tab_width}",
+          "--indent-type",
+          "spaces"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 0
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".lua"
+        ],
+        "shebangs": [
+          "^#!.*\\blua\\b"
+        ]
+      }
+    },
+    "properties": {
+      "formatter": {
+        "backend": "native",
+        "tool": "properties"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".properties"
+        ]
+      }
+    },
+    "python": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "ruff",
+        "cmd": [
+          "format",
+          "-",
+          "--line-length",
+          "{line_length}"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 4,
+        "customIndentFrom": {
+          "tab_width": 4
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".py",
+          ".pyw"
+        ],
+        "shebangs": [
+          "^#!.*\\bpython3?\\b"
+        ],
+        "content": [
+          "\\bdef\\s+\\w+\\s*\\(",
+          "\\bimport\\s+\\w+\\s*$",
+          "\\bfrom\\s+\\w+\\s+import\\b"
+        ],
+        "priority": 3
+      }
+    },
+    "ruby": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "rubocop",
+        "cmd": [
+          "--stdin",
+          "input.rb",
+          "-A",
+          "--stderr",
+          "--fail-level",
+          "E"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 2
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".rb"
+        ],
+        "shebangs": [
+          "^#!.*\\bruby\\b"
+        ],
+        "content": [
+          "\\bdef\\s+\\w+[!?]\\s*(\\|.*\\|)?\\s*do",
+          "\\bclass\\s+\\w+\\s+extends\\s+"
+        ],
+        "priority": 6
+      }
+    },
+    "rust": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "prettyplease-cli",
+        "cmd": [
+          "{ext}"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 4,
+        "customIndentFrom": {
+          "tab_width": 4
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".rs"
+        ],
+        "content": [
+          "\\bfunction\\s+\\w+",
+          "\\blet\\s+mut\\s+\\w+",
+          "\\bfn\\s+\\w+"
+        ],
+        "priority": 7
+      }
+    },
+    "scala": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "scalafmt",
+        "cmd": [
+          "--stdin",
+          "--stdout",
+          "--config-str",
+          "version=3.11.5\nrunner.dialect=scala3"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 2
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".scala",
+          ".sc"
+        ],
+        "shebangs": [
+          "^#!.*\\bscala\\b"
+        ]
+      }
+    },
+    "shell": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "shfmt",
+        "cmd": [
+          "-i",
+          "{tab_width}",
+          "-bn",
+          "-ci",
+          "-sr",
+          "-"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 0
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".sh",
+          ".bash",
+          ".zsh",
+          ".ksh"
+        ],
+        "shebangs": [
+          "^#!.*\\b(bash|sh|zsh|ksh|fish)\\b"
+        ]
+      }
+    },
+    "sql": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "sleek",
+        "cmd": [
+          "--indent-spaces",
+          "{tab_width}",
+          "--uppercase",
+          "true",
+          "--trailing-newline",
+          "false"
+        ]
+      },
+      "compressor": {
+        "backend": "native",
+        "tool": "sql"
+      },
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 0
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".sql"
+        ],
+        "content": [
+          "\\bSELECT\\s+.+\\bFROM\\b",
+          "\\bCREATE\\s+TABLE\\b",
+          "\\bINSERT\\s+INTO\\b"
+        ],
+        "priority": 8
+      }
+    },
+    "toml": {
+      "formatter": {
+        "backend": "native",
+        "tool": "toml"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".toml"
+        ]
+      }
+    },
+    "typescript": {
+      "formatter": {
+        "backend": "tool",
+        "tool": "oxfmt-wrapper",
+        "cmd": [
+          "{ext}"
+        ]
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2,
+        "customIndentFrom": {
+          "tab_width": 2
+        }
+      },
+      "detection": {
+        "extensions": [
+          ".ts",
+          ".tsx"
+        ],
+        "content": [
+          "\\binterface\\s+\\w+",
+          "\\b:\\s*(string|number|boolean|any|void)\\b"
+        ],
+        "priority": 5
+      }
+    },
+    "xml": {
+      "formatter": {
+        "backend": "native",
+        "tool": "xml"
+      },
+      "compressor": {
+        "backend": "native",
+        "tool": "xml"
+      },
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".xml"
+        ],
+        "content": [
+          "^\\s*\u003c\\?xml"
+        ],
+        "priority": 10
+      }
+    },
+    "yaml": {
+      "formatter": {
+        "backend": "native",
+        "tool": "yaml"
+      },
+      "compressor": null,
+      "highlighter": null,
+      "indent": {
+        "tab_width": 2
+      },
+      "detection": {
+        "extensions": [
+          ".yaml",
+          ".yml"
+        ],
+        "content": [
+          "^---\\s*\\n",
+          "(?m)^\\w+:\\s*\\n\\s{2,}\\w+:\\s"
+        ],
+        "priority": 12
+      }
+    }
+  },
+  "server": {
+    "auto_port": true,
+    "port": 3020
+  },
+  "window": {
+    "height": 800,
+    "width": 1000
+  }
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Formatter
+Comment=代码格式化、压缩与语法高亮工具
+Exec=formatter
+Icon=formatter
+Terminal=false
+Categories=Development;Utility;TextEditor;
+Keywords=code;formatter;syntax;highlight;

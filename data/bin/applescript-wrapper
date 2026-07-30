@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="1.0.0"
+
+if [[ "${1:-}" == "--version" || "${1:-}" == "-v" ]]; then
+    echo "applescript-formatter ${VERSION}"
+    exit 0
+fi
+
+# 读取 stdin
+input="$(cat)"
+
+# 空输入直接输出
+if [[ -z "$(printf '%s' "$input" | tr -d '[:space:]')" ]]; then
+    printf '%s' "$input"
+    exit 0
+fi
+
+# 使用 macOS 内置的 osacompile + osadecompile 标准化格式
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+src_path="${tmp_dir}/input.applescript"
+scpt_path="${tmp_dir}/output.scpt"
+
+printf '%s\n' "$input" > "$src_path"
+
+if ! osacompile -l AppleScript -o "$scpt_path" "$src_path" 2>/dev/null; then
+    echo "applescript-formatter: AppleScript 编译失败" >&2
+    exit 1
+fi
+
+osadecompile "$scpt_path"

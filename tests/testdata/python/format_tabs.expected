@@ -1,0 +1,39 @@
+def greet(name: str) -> str:
+	return f"Hello, {name}!"
+
+
+class Animal:
+	def __init__(self, name: str, species: str):
+		self.name = name
+		self.species = species
+
+	def speak(self) -> str:
+		return f"{self.name} makes a sound."
+
+	def __str__(self) -> str:
+		return f"{self.name} ({self.species})"
+
+
+class Dog(Animal):
+	def __init__(self, name: str, breed: str):
+		super().__init__(name, "Dog")
+		self.breed = breed
+
+	def speak(self) -> str:
+		return f"{self.name} barks: Woof!"
+
+	def fetch(self) -> str:
+		return f"{self.name} is fetching the ball."
+
+
+def calculate_factorial(n: int) -> int:
+	if n <= 1:
+		return 1
+	return n * calculate_factorial(n - 1)
+
+
+if __name__ == "__main__":
+	dog = Dog("Buddy", "Golden Retriever")
+	print(greet(dog.name))
+	print(dog.speak())
+	print(f"Factorial of 5: {calculate_factorial(5)}")

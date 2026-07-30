@@ -1,0 +1,42 @@
+#!/bin/bash
+# Edge case test with various shell constructs
+set -euo pipefail
+
+# Variable assignment and command substitution
+FILES=$(ls -la | grep "\.sh$")
+COUNT=0
+
+# If/elif/else
+if [[ -z "$FILES" ]]; then
+echo "No shell files found"
+elif [[ $COUNT -eq 0 ]]; then
+echo "Count is zero"
+else
+echo "Files found: $FILES"
+fi
+
+# Case statement
+case "$1" in
+start)
+echo "Starting..."
+;;
+stop)
+echo "Stopping..."
+;;
+*)
+echo "Usage: $0 {start|stop}"
+exit 1
+;;
+esac
+
+# Here document
+cat <<EOF
+Multi-line
+string here
+EOF
+
+# Array
+arr=(one two "three four")
+for item in "${arr[@]}"; do
+echo "Item: $item"
+done

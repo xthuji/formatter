@@ -1,0 +1,22 @@
+{
+  "config": {
+    "tabWidth": 2,
+    "useTabs": false
+  },
+  "features": [
+    "format",
+    "compress",
+    "highlight"
+  ],
+  "languages": [
+    "go",
+    "lua",
+    "java",
+    "json",
+    "yaml",
+    "xml",
+    "shell"
+  ],
+  "name": "formatter",
+  "version": "3.0"
+}

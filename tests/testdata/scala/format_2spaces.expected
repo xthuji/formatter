@@ -1,0 +1,20 @@
+object HelloWorld {
+  def main(args: Array[String]): Unit = {
+    println("Hello, World!")
+  }
+}
+
+class Person(val name: String, val age: Int) {
+  def greet(): String = s"Hello, my name is $name and I am $age years old."
+}
+
+case class Point(x: Int, y: Int) {
+  def add(other: Point): Point = Point(x + other.x, y + other.y)
+}
+
+object MathUtils {
+  def factorial(n: Int): Int = {
+    if (n <= 1) 1
+    else n * factorial(n - 1)
+  }
+}

@@ -1,0 +1,73 @@
+<style name="eclipse">
+  <!-- Eclipse IDE Default Light Theme -->
+  <entry type="Background" style="bg:#ffffff"/>
+  <entry type="Text" style="#000000"/>
+  <entry type="Keyword" style="bold #7f0055"/>
+  <entry type="KeywordConstant" style="bold #7f0055"/>
+  <entry type="KeywordDeclaration" style="bold #7f0055"/>
+  <entry type="KeywordNamespace" style="bold #7f0055"/>
+  <entry type="KeywordPseudo" style="#7f0055"/>
+  <entry type="KeywordReserved" style="bold #7f0055"/>
+  <entry type="KeywordType" style="bold #7f0055"/>
+  <entry type="Name" style="#000000"/>
+  <entry type="NameAttribute" style="#646464"/>
+  <entry type="NameBuiltin" style="#0000ff"/>
+  <entry type="NameBuiltinPseudo" style="#0000ff"/>
+  <entry type="NameClass" style="bold #000000"/>
+  <entry type="NameConstant" style="#880000"/>
+  <entry type="NameDecorator" style="#646464"/>
+  <entry type="NameEntity" style="bold #000000"/>
+  <entry type="NameException" style="bold #000000"/>
+  <entry type="NameFunction" style="#000000"/>
+  <entry type="NameLabel" style="#000000"/>
+  <entry type="NameNamespace" style="bold #000000"/>
+  <entry type="NameOther" style="#000000"/>
+  <entry type="NameTag" style="bold #7f0055"/>
+  <entry type="NameVariable" style="#000000"/>
+  <entry type="NameVariableClass" style="#000000"/>
+  <entry type="NameVariableGlobal" style="#000000"/>
+  <entry type="NameVariableInstance" style="#000000"/>
+  <entry type="Literal" style="#0000ff"/>
+  <entry type="LiteralDate" style="#0000ff"/>
+  <entry type="LiteralString" style="#2a7f2a"/>
+  <entry type="LiteralStringAffix" style="#2a7f2a"/>
+  <entry type="LiteralStringBacktick" style="#2a7f2a"/>
+  <entry type="LiteralStringChar" style="#2a7f2a"/>
+  <entry type="LiteralStringDelimiter" style="#2a7f2a"/>
+  <entry type="LiteralStringDoc" style="italic #3f7f5f"/>
+  <entry type="LiteralStringDouble" style="#2a7f2a"/>
+  <entry type="LiteralStringEscape" style="bold #2a7f2a"/>
+  <entry type="LiteralStringHeredoc" style="#2a7f2a"/>
+  <entry type="LiteralStringInterpol" style="bold #2a7f2a"/>
+  <entry type="LiteralStringOther" style="#2a7f2a"/>
+  <entry type="LiteralStringRegex" style="#2a7f2a"/>
+  <entry type="LiteralStringSingle" style="#2a7f2a"/>
+  <entry type="LiteralStringSymbol" style="#2a7f2a"/>
+  <entry type="LiteralNumber" style="#0000ff"/>
+  <entry type="LiteralNumberBin" style="#0000ff"/>
+  <entry type="LiteralNumberFloat" style="#0000ff"/>
+  <entry type="LiteralNumberHex" style="#0000ff"/>
+  <entry type="LiteralNumberInteger" style="#0000ff"/>
+  <entry type="LiteralNumberOct" style="#0000ff"/>
+  <entry type="Operator" style="#000000"/>
+  <entry type="OperatorWord" style="bold #7f0055"/>
+  <entry type="Punctuation" style="#000000"/>
+  <entry type="Comment" style="italic #3f7f5f"/>
+  <entry type="CommentHashbang" style="italic #3f7f5f"/>
+  <entry type="CommentMultiline" style="italic #3f7f5f"/>
+  <entry type="CommentSingle" style="italic #3f7f5f"/>
+  <entry type="CommentSpecial" style="bold #3f7f5f"/>
+  <entry type="CommentPreproc" style="italic #3f7f5f"/>
+  <entry type="CommentPreprocFile" style="italic #3f7f5f"/>
+  <entry type="GenericDeleted" style="bg:#ffe1e1 #000000"/>
+  <entry type="GenericInserted" style="bg:#d9f2d9 #000000"/>
+  <entry type="GenericHeading" style="bold #000000"/>
+  <entry type="GenericSubheading" style="bold #000000"/>
+  <entry type="GenericEmph" style="italic #000000"/>
+  <entry type="GenericStrong" style="bold #000000"/>
+  <entry type="GenericPrompt" style="#000000"/>
+  <entry type="GenericOutput" style="#888888"/>
+  <entry type="GenericTraceback" style="#cc0000"/>
+  <entry type="Error" style="border:#cc0000"/>
+  <entry type="Text" style="#000000"/>
+</style>

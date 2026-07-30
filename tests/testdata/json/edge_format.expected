@@ -1,0 +1,21 @@
+{
+  "bool_false": false,
+  "bool_true": true,
+  "empty_arr": [],
+  "empty_obj": {},
+  "nested": {
+    "a": {
+      "b": {
+        "c": 1
+      }
+    }
+  },
+  "null_val": null,
+  "numbers": [
+    0,
+    -1,
+    3.14,
+    10000000000
+  ],
+  "unicode": "你好世界"
+}

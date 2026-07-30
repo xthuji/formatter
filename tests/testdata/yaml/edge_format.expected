@@ -1,0 +1,16 @@
+boolean: true
+empty: null
+float: 3.14
+integer: 42
+list:
+  - item1
+  - item2
+  - nested:
+      key: value
+      list2:
+        - 1
+        - 2
+        - 3
+multiline: |
+  This is a
+  multi-line string

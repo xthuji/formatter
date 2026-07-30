@@ -1,0 +1,23 @@
+<pre style="font-size:14px;color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;config&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;tabWidth&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;useTabs&#34;</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;features&#34;</span>: [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;format&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;compress&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;highlight&#34;</span>
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;languages&#34;</span>: [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;go&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;lua&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;java&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;json&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;yaml&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;xml&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;shell&#34;</span>
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;formatter&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;version&#34;</span>: <span style="color:#e6db74">&#34;3.0&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre>

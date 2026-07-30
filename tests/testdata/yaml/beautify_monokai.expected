@@ -1,0 +1,16 @@
+<pre style="font-size:14px;color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span><span style="color:#f92672">format</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">tab_width</span>: <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">languages</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">go</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">formatter</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">backend</span>: <span style="color:#ae81ff">native</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">lua</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">formatter</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">backend</span>: <span style="color:#ae81ff">tool</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">server</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">auto_port</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">port</span>: <span style="color:#ae81ff">9090</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">window</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">height</span>: <span style="color:#ae81ff">800</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">width</span>: <span style="color:#ae81ff">1200</span>
+</span></span></code></pre>

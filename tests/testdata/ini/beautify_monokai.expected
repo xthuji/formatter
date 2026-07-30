@@ -1,0 +1,13 @@
+<pre style="font-size:14px;color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span><span style="color:#66d9ef">[cache]</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">max_connections</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">100</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ttl</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">300</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">type</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">redis</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">[database]</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">enabled</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">port</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">5432</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">server</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">192.168.1.1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">[server]</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">host</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">localhost</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">port</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">8080</span></span></span></code></pre>

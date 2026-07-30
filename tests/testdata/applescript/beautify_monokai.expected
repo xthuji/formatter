@@ -1,0 +1,32 @@
+<pre style="font-size:14px;color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span><span style="color:#66d9ef">tell</span> application <span style="color:#e6db74">&#34;Finder&#34;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">set</span> desktopPath <span style="color:#66d9ef">to</span> path to desktop <span style="color:#66d9ef">as </span><span style="color:#a6e22e">string</span>
+</span></span><span style="display:flex;"><span>	display dialog <span style="color:#e6db74">&#34;Hello from AppleScript!&#34;</span> buttons {<span style="color:#e6db74">&#34;OK&#34;</span>, <span style="color:#e6db74">&#34;Cancel&#34;</span>} default button <span style="color:#e6db74">&#34;OK&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span> <span style="color:#66d9ef">tell</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">tell</span> application <span style="color:#e6db74">&#34;Safari&#34;</span>
+</span></span><span style="display:flex;"><span>	activate
+</span></span><span style="display:flex;"><span>	open location <span style="color:#e6db74">&#34;https://www.example.com&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span> <span style="color:#66d9ef">tell</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">set</span> userName <span style="color:#66d9ef">to</span> <span style="color:#e6db74">&#34;Alice&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">set</span> userAge <span style="color:#66d9ef">to</span> <span style="color:#ae81ff">30</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">set</span> greeting <span style="color:#66d9ef">to</span> <span style="color:#e6db74">&#34;Hello, &#34;</span> <span style="color:#f92672">&amp;</span> userName <span style="color:#f92672">&amp;</span> <span style="color:#e6db74">&#34;! You are &#34;</span> <span style="color:#f92672">&amp;</span> userAge <span style="color:#f92672">&amp;</span> <span style="color:#e6db74">&#34; years old.&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> userAge <span style="color:#f92672">≥</span> <span style="color:#ae81ff">18</span> <span style="color:#66d9ef">then</span>
+</span></span><span style="display:flex;"><span>	display dialog greeting <span style="color:#f92672">&amp;</span> <span style="color:#e6db74">&#34; You are an adult.&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>	display dialog greeting <span style="color:#f92672">&amp;</span> <span style="color:#e6db74">&#34; You are a minor.&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span> <span style="color:#66d9ef">if</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">on</span> factorial(n)
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> n <span style="color:#f92672">≤</span> <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">then</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> n <span style="color:#f92672">*</span> (factorial(n <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>))
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">end</span> <span style="color:#66d9ef">if</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span> factorial
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">set</span> <span style="color:#66d9ef">result</span> <span style="color:#66d9ef">to</span> factorial(<span style="color:#ae81ff">5</span>)
+</span></span><span style="display:flex;"><span>display dialog <span style="color:#e6db74">&#34;Factorial of 5 is &#34;</span> <span style="color:#f92672">&amp;</span> <span style="color:#66d9ef">result</span>
+</span></span><span style="display:flex;"><span>
+</span></span></code></pre>

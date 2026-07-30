@@ -1,0 +1,13 @@
+<pre style="font-size:14px;color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span><span style="color:#66d9ef">local</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">greet</span>(name)
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> name <span style="color:#66d9ef">then</span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;</span><span style="color:#e6db74">Hello, </span><span style="color:#e6db74">&#34;</span> <span style="color:#f92672">..</span> name <span style="color:#f92672">..</span> <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">!</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;</span><span style="color:#e6db74">Hello, world!</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">end</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">local</span> fruits <span style="color:#f92672">=</span> { <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">apple</span><span style="color:#e6db74">&#34;</span>, <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">banana</span><span style="color:#e6db74">&#34;</span>, <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">cherry</span><span style="color:#e6db74">&#34;</span> }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> i, fruit <span style="color:#66d9ef">in</span> ipairs(fruits) <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>  print(i, fruit)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>
+</span></span><span style="display:flex;"><span>greet(<span style="color:#e6db74">&#34;</span><span style="color:#e6db74">Lua</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre>

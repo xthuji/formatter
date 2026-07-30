@@ -1,0 +1,15 @@
+server:
+  port:  9090
+  auto_port: true
+window:
+  width: 1200
+  height: 800
+format:
+  tab_width: 2
+languages:
+  go:
+    formatter:
+      backend: native
+  lua:
+    formatter:
+      backend: tool

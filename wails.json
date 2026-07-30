@@ -1,0 +1,14 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "formatter",
+  "outputfilename": "Formatter",
+  "frontend:dir": "src/ui/static",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Formatter"
+  },
+  "assetdir": "src/ui/static"
+}

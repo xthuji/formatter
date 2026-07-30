@@ -1,0 +1,39 @@
+<pre style="font-size:14px;color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> users (
+</span></span><span style="display:flex;"><span>  id INTEGER <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span> AUTOINCREMENT,
+</span></span><span style="display:flex;"><span>  name VARCHAR(<span style="color:#ae81ff">100</span>) <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>  email VARCHAR(<span style="color:#ae81ff">255</span>) <span style="color:#66d9ef">UNIQUE</span>,
+</span></span><span style="display:flex;"><span>  age INTEGER,
+</span></span><span style="display:flex;"><span>  created_at <span style="color:#66d9ef">TIMESTAMP</span> <span style="color:#66d9ef">DEFAULT</span> <span style="color:#66d9ef">CURRENT_TIMESTAMP</span>
+</span></span><span style="display:flex;"><span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">INSERT</span> <span style="color:#66d9ef">INTO</span>
+</span></span><span style="display:flex;"><span>  users (name, email, age)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">VALUES</span>
+</span></span><span style="display:flex;"><span>  (<span style="color:#e6db74">&#39;</span><span style="color:#e6db74">Alice</span><span style="color:#e6db74">&#39;</span>, <span style="color:#e6db74">&#39;</span><span style="color:#e6db74">alice@example.com</span><span style="color:#e6db74">&#39;</span>, <span style="color:#ae81ff">30</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">INSERT</span> <span style="color:#66d9ef">INTO</span>
+</span></span><span style="display:flex;"><span>  users (name, email, age)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">VALUES</span>
+</span></span><span style="display:flex;"><span>  (<span style="color:#e6db74">&#39;</span><span style="color:#e6db74">Bob</span><span style="color:#e6db74">&#39;</span>, <span style="color:#e6db74">&#39;</span><span style="color:#e6db74">bob@example.com</span><span style="color:#e6db74">&#39;</span>, <span style="color:#ae81ff">25</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">SELECT</span>
+</span></span><span style="display:flex;"><span>  id,
+</span></span><span style="display:flex;"><span>  name,
+</span></span><span style="display:flex;"><span>  email
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span>
+</span></span><span style="display:flex;"><span>  users
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">WHERE</span>
+</span></span><span style="display:flex;"><span>  age <span style="color:#f92672">&gt;</span><span style="color:#f92672">=</span> <span style="color:#ae81ff">18</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">ORDER</span> <span style="color:#66d9ef">BY</span>
+</span></span><span style="display:flex;"><span>  name <span style="color:#66d9ef">ASC</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">SELECT</span>
+</span></span><span style="display:flex;"><span>  u.name,
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">COUNT</span>(o.id) <span style="color:#66d9ef">AS</span> order_count
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span>
+</span></span><span style="display:flex;"><span>  users u
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">LEFT</span> <span style="color:#66d9ef">JOIN</span> orders o <span style="color:#66d9ef">ON</span> u.id <span style="color:#f92672">=</span> o.user_id
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">GROUP</span> <span style="color:#66d9ef">BY</span>
+</span></span><span style="display:flex;"><span>  u.id
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">HAVING</span>
+</span></span><span style="display:flex;"><span>  order_count <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>;</span></span></code></pre>

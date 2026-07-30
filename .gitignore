@@ -1,15 +1,62 @@
-# Binaries for programs and plugins
+# =======================================
+# Go 构建产物
+# =======================================
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# 根目录构建的二进制
+/Formatter
+/formatter
+/formatter-cli
+
+# 运行时自动生成的配置文件 (config.Save 写入到可执行文件同目录)
+/config.json
+
+# =======================================
+# 项目构建/发布目录 (运行 scripts/run_tools.sh build 重新生成)
+# =======================================
+/build/
+/release/
+
+# =======================================
+# 下载缓存
+# =======================================
+/.downloads/
+
+# =======================================
+# 测试覆盖率 (运行 scripts/run_tools.sh test 生成)
+# =======================================
+/coverage/
+coverage.*.out
+coverage.*.txt
+
+# =======================================
+# 测试输出文件 (go test -update 生成，用于审查实际输出)
+# =======================================
+tests/testdata/**/*.output
+
+# =======================================
+# Go workspace
+# =======================================
+go.work
+go.work.sum
+
+# =======================================
+# IDE/工具目录
+# =======================================
+.trae/
+
+# =======================================
+# 编辑器/系统文件
+# =======================================
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

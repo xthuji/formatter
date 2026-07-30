@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project><name>formatter</name><version>3.0</version><dependencies><dependency><groupId>com.example</groupId><artifactId>core</artifactId><version>1.0.0</version></dependency></dependencies><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId></plugin></plugins></build></project>

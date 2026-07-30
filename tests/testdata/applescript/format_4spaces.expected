@@ -1,0 +1,31 @@
+tell application "Finder"
+    set desktopPath to path to desktop as string
+    display dialog "Hello from AppleScript!" buttons {"OK", "Cancel"} default button "OK"
+end tell
+
+tell application "Safari"
+    activate
+    open location "https://www.example.com"
+end tell
+
+set userName to "Alice"
+set userAge to 30
+set greeting to "Hello, " & userName & "! You are " & userAge & " years old."
+
+if userAge ≥ 18 then
+    display dialog greeting & " You are an adult."
+else
+    display dialog greeting & " You are a minor."
+end if
+
+on factorial(n)
+    if n ≤ 1 then
+        return 1
+    else
+        return n * (factorial(n - 1))
+    end if
+end factorial
+
+set result to factorial(5)
+display dialog "Factorial of 5 is " & result
+

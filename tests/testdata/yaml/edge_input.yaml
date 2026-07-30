@@ -1,0 +1,15 @@
+---
+# YAML edge cases
+empty: null
+boolean: true
+integer: 42
+float: 3.14
+list:
+  - item1
+  - item2
+  - nested:
+      key: value
+      list2: [1, 2, 3]
+multiline: |
+  This is a
+  multi-line string

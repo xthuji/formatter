@@ -1,0 +1,37 @@
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  age?: number;
+}
+
+type UserRole = "admin" | "user" | "guest";
+
+function greetUser(user: User): string {
+  return `Hello, ${user.name}!`;
+}
+
+const alice: User = {
+  id: 1,
+  name: "Alice",
+  email: "alice@example.com",
+  age: 30,
+};
+
+class UserService {
+  private users: User[] = [];
+
+  addUser(user: User): void {
+    this.users.push(user);
+  }
+
+  findById(id: number): User | undefined {
+    return this.users.find((u) => u.id === id);
+  }
+
+  getAllUsers(): User[] {
+    return [...this.users];
+  }
+}
+
+console.log(greetUser(alice));

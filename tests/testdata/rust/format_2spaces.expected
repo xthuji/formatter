@@ -1,0 +1,32 @@
+struct Person {
+  name: String,
+  age: u32,
+}
+impl Person {
+  fn new(name: &str, age: u32) -> Self {
+    Person {
+      name: name.to_string(),
+      age,
+    }
+  }
+  fn greet(&self) -> String {
+    format!("Hello, my name is {} and I am {} years old.", self.name, self.age)
+  }
+  fn birthday(&mut self) {
+    self.age += 1;
+  }
+}
+fn add(a: i32, b: i32) -> i32 {
+  a + b
+}
+fn factorial(n: u64) -> u64 {
+  if n <= 1 { 1 } else { n * factorial(n - 1) }
+}
+fn main() {
+  let mut person = Person::new("Alice", 30);
+  println!("{}", person.greet());
+  person.birthday();
+  println!("After birthday: {} is now {}", person.name, person.age);
+  println!("5 + 3 = {}", add(5, 3));
+  println!("Factorial of 5: {}", factorial(5));
+}

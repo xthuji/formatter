@@ -1,0 +1,73 @@
+<style name="idea-darcula">
+  <!-- IntelliJ IDEA Darcula Dark Theme -->
+  <entry type="Background" style="bg:#2b2b2b"/>
+  <entry type="Text" style="#a9b7c6"/>
+  <entry type="Keyword" style="bold #cc7832"/>
+  <entry type="KeywordConstant" style="bold #cc7832"/>
+  <entry type="KeywordDeclaration" style="bold #cc7832"/>
+  <entry type="KeywordNamespace" style="bold #cc7832"/>
+  <entry type="KeywordPseudo" style="#cc7832"/>
+  <entry type="KeywordReserved" style="bold #cc7832"/>
+  <entry type="KeywordType" style="bold #cc7832"/>
+  <entry type="Name" style="#a9b7c6"/>
+  <entry type="NameAttribute" style="#bbb529"/>
+  <entry type="NameBuiltin" style="#cc7832"/>
+  <entry type="NameBuiltinPseudo" style="#cc7832"/>
+  <entry type="NameClass" style="#a9b7c6"/>
+  <entry type="NameConstant" style="#9876aa"/>
+  <entry type="NameDecorator" style="#bbb529"/>
+  <entry type="NameEntity" style="#bbb529"/>
+  <entry type="NameException" style="#a9b7c6"/>
+  <entry type="NameFunction" style="#a9b7c6"/>
+  <entry type="NameLabel" style="#a9b7c6"/>
+  <entry type="NameNamespace" style="#a9b7c6"/>
+  <entry type="NameOther" style="#a9b7c6"/>
+  <entry type="NameTag" style="bold #cc7832"/>
+  <entry type="NameVariable" style="#9876aa"/>
+  <entry type="NameVariableClass" style="#9876aa"/>
+  <entry type="NameVariableGlobal" style="#9876aa"/>
+  <entry type="NameVariableInstance" style="#9876aa"/>
+  <entry type="Literal" style="#6a8759"/>
+  <entry type="LiteralDate" style="#6a8759"/>
+  <entry type="LiteralString" style="#6a8759"/>
+  <entry type="LiteralStringAffix" style="#6a8759"/>
+  <entry type="LiteralStringBacktick" style="#6a8759"/>
+  <entry type="LiteralStringChar" style="#6a8759"/>
+  <entry type="LiteralStringDelimiter" style="#6a8759"/>
+  <entry type="LiteralStringDoc" style="italic #808080"/>
+  <entry type="LiteralStringDouble" style="#6a8759"/>
+  <entry type="LiteralStringEscape" style="bold #6a8759"/>
+  <entry type="LiteralStringHeredoc" style="#6a8759"/>
+  <entry type="LiteralStringInterpol" style="#cc7832"/>
+  <entry type="LiteralStringOther" style="#6a8759"/>
+  <entry type="LiteralStringRegex" style="#6a8759"/>
+  <entry type="LiteralStringSingle" style="#6a8759"/>
+  <entry type="LiteralStringSymbol" style="#6a8759"/>
+  <entry type="LiteralNumber" style="#6897bb"/>
+  <entry type="LiteralNumberBin" style="#6897bb"/>
+  <entry type="LiteralNumberFloat" style="#6897bb"/>
+  <entry type="LiteralNumberHex" style="#6897bb"/>
+  <entry type="LiteralNumberInteger" style="#6897bb"/>
+  <entry type="LiteralNumberOct" style="#6897bb"/>
+  <entry type="Operator" style="#a9b7c6"/>
+  <entry type="OperatorWord" style="bold #cc7832"/>
+  <entry type="Punctuation" style="#a9b7c6"/>
+  <entry type="Comment" style="italic #808080"/>
+  <entry type="CommentHashbang" style="italic #808080"/>
+  <entry type="CommentMultiline" style="italic #808080"/>
+  <entry type="CommentSingle" style="italic #808080"/>
+  <entry type="CommentSpecial" style="italic #808080"/>
+  <entry type="CommentPreproc" style="italic #bbb529"/>
+  <entry type="CommentPreprocFile" style="italic #bbb529"/>
+  <entry type="GenericDeleted" style="bg:#3a1d1d #a9b7c6"/>
+  <entry type="GenericInserted" style="bg:#1a3a1d #a9b7c6"/>
+  <entry type="GenericHeading" style="bold #a9b7c6"/>
+  <entry type="GenericSubheading" style="bold #a9b7c6"/>
+  <entry type="GenericEmph" style="italic #a9b7c6"/>
+  <entry type="GenericStrong" style="bold #a9b7c6"/>
+  <entry type="GenericPrompt" style="#808080"/>
+  <entry type="GenericOutput" style="#808080"/>
+  <entry type="GenericTraceback" style="#cc7832"/>
+  <entry type="Error" style="border:#cc7832"/>
+  <entry type="Text" style="#a9b7c6"/>
+</style>

@@ -1,0 +1,7 @@
+{
+  "name": "formatter",
+  "version": "3.0",
+  "features": ["format", "compress", "highlight"],
+  "config": { "tabWidth": 2, "useTabs": false },
+  "languages": ["go", "lua", "java", "json", "yaml", "xml", "shell"]
+}

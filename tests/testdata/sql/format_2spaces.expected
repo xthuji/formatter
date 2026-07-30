@@ -1,0 +1,39 @@
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) UNIQUE,
+  age INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO
+  users (name, email, age)
+VALUES
+  ('Alice', 'alice@example.com', 30);
+
+INSERT INTO
+  users (name, email, age)
+VALUES
+  ('Bob', 'bob@example.com', 25);
+
+SELECT
+  id,
+  name,
+  email
+FROM
+  users
+WHERE
+  age >= 18
+ORDER BY
+  name ASC;
+
+SELECT
+  u.name,
+  COUNT(o.id) AS order_count
+FROM
+  users u
+  LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY
+  u.id
+HAVING
+  order_count > 0;

@@ -1,0 +1,73 @@
+<style name="idea">
+  <!-- IntelliJ IDEA Default Light Theme -->
+  <entry type="Background" style="bg:#ffffff"/>
+  <entry type="Text" style="#000000"/>
+  <entry type="Keyword" style="bold #0033b3"/>
+  <entry type="KeywordConstant" style="bold #0033b3"/>
+  <entry type="KeywordDeclaration" style="bold #0033b3"/>
+  <entry type="KeywordNamespace" style="bold #0033b3"/>
+  <entry type="KeywordPseudo" style="#0033b3"/>
+  <entry type="KeywordReserved" style="bold #0033b3"/>
+  <entry type="KeywordType" style="bold #0033b3"/>
+  <entry type="Name" style="#000000"/>
+  <entry type="NameAttribute" style="#008080"/>
+  <entry type="NameBuiltin" style="#0033b3"/>
+  <entry type="NameBuiltinPseudo" style="#0033b3"/>
+  <entry type="NameClass" style="#008080"/>
+  <entry type="NameConstant" style="#0033b3"/>
+  <entry type="NameDecorator" style="#008080"/>
+  <entry type="NameEntity" style="#008080"/>
+  <entry type="NameException" style="#008080"/>
+  <entry type="NameFunction" style="#000000"/>
+  <entry type="NameLabel" style="#008080"/>
+  <entry type="NameNamespace" style="#000000"/>
+  <entry type="NameOther" style="#000000"/>
+  <entry type="NameTag" style="bold #0033b3"/>
+  <entry type="NameVariable" style="#000000"/>
+  <entry type="NameVariableClass" style="#000000"/>
+  <entry type="NameVariableGlobal" style="#000000"/>
+  <entry type="NameVariableInstance" style="#000000"/>
+  <entry type="Literal" style="#008000"/>
+  <entry type="LiteralDate" style="#008000"/>
+  <entry type="LiteralString" style="#008000"/>
+  <entry type="LiteralStringAffix" style="#008000"/>
+  <entry type="LiteralStringBacktick" style="#008000"/>
+  <entry type="LiteralStringChar" style="#008000"/>
+  <entry type="LiteralStringDelimiter" style="#008000"/>
+  <entry type="LiteralStringDoc" style="italic #808080"/>
+  <entry type="LiteralStringDouble" style="#008000"/>
+  <entry type="LiteralStringEscape" style="bold #008000"/>
+  <entry type="LiteralStringHeredoc" style="#008000"/>
+  <entry type="LiteralStringInterpol" style="#008000"/>
+  <entry type="LiteralStringOther" style="#008000"/>
+  <entry type="LiteralStringRegex" style="#008000"/>
+  <entry type="LiteralStringSingle" style="#008000"/>
+  <entry type="LiteralStringSymbol" style="#008000"/>
+  <entry type="LiteralNumber" style="#1750eb"/>
+  <entry type="LiteralNumberBin" style="#1750eb"/>
+  <entry type="LiteralNumberFloat" style="#1750eb"/>
+  <entry type="LiteralNumberHex" style="#1750eb"/>
+  <entry type="LiteralNumberInteger" style="#1750eb"/>
+  <entry type="LiteralNumberOct" style="#1750eb"/>
+  <entry type="Operator" style="#000000"/>
+  <entry type="OperatorWord" style="bold #0033b3"/>
+  <entry type="Punctuation" style="#000000"/>
+  <entry type="Comment" style="italic #808080"/>
+  <entry type="CommentHashbang" style="italic #808080"/>
+  <entry type="CommentMultiline" style="italic #808080"/>
+  <entry type="CommentSingle" style="italic #808080"/>
+  <entry type="CommentSpecial" style="italic #808080"/>
+  <entry type="CommentPreproc" style="italic #008080"/>
+  <entry type="CommentPreprocFile" style="italic #008080"/>
+  <entry type="GenericDeleted" style="bg:#ffe1e1 #000000"/>
+  <entry type="GenericInserted" style="bg:#d9f2d9 #000000"/>
+  <entry type="GenericHeading" style="bold #000000"/>
+  <entry type="GenericSubheading" style="bold #000000"/>
+  <entry type="GenericEmph" style="italic #000000"/>
+  <entry type="GenericStrong" style="bold #000000"/>
+  <entry type="GenericPrompt" style="#000000"/>
+  <entry type="GenericOutput" style="#808080"/>
+  <entry type="GenericTraceback" style="#cc0000"/>
+  <entry type="Error" style="border:#cc0000"/>
+  <entry type="Text" style="#000000"/>
+</style>

@@ -1,0 +1,8 @@
+app.author=John Doe
+app.name=MyApp
+app.version=1.0.0
+cache.ttl=300
+cache.type=redis
+database.enabled=true
+database.port=5432
+database.server=192.168.1.1

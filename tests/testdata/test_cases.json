@@ -1,0 +1,909 @@
+{
+  "$comment": "Golden file 测试配置: 每种语言按目录 (tests/testdata/{lang}/) 组织输入和期望输出文件。用例定义操作 (format/compress/beautify)、选项 (tab_width[-1=Tab]/style)、测试方式 (pipeline/cli)。运行 `go test -update` 生成期望文件。",
+  "languages": {
+    "json": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.json",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.json",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "format_tabs",
+          "operation": "format",
+          "input": "input.json",
+          "expected": "format_tabs.expected",
+          "options": { "tab_width": -1 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "compress",
+          "operation": "compress",
+          "input": "input.json",
+          "expected": "compress.expected",
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.json",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.json",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_empty_object",
+          "operation": "format",
+          "input": "edge_empty_input.json",
+          "expected": "edge_empty_object.expected",
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "yaml": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.yaml",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.yaml",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.yaml",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.yaml",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "xml": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.xml",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.xml",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "compress",
+          "operation": "compress",
+          "input": "input.xml",
+          "expected": "compress.expected",
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.xml",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.xml",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "html": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.html",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "compress",
+          "operation": "compress",
+          "input": "input.html",
+          "expected": "compress.expected",
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.html",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.html",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "go": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.go",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.go",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.go",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "shell": {
+      "backend": "tool",
+      "tool": "shfmt",
+      "aliases": ["bash", "sh", "zsh"],
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.sh",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.sh",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.sh",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.sh",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "shebang_format",
+          "operation": "format",
+          "input": "shebang_input.sh",
+          "expected": "shebang_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "javascript": {
+      "backend": "tool",
+      "tool": "oxfmt-wrapper",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.js",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.js",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "compress",
+          "operation": "compress",
+          "input": "input.js",
+          "expected": "compress.expected",
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.js",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "typescript": {
+      "backend": "tool",
+      "tool": "oxfmt-wrapper",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.ts",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.ts",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "format_tabs",
+          "operation": "format",
+          "input": "input.ts",
+          "expected": "format_tabs.expected",
+          "options": { "tab_width": -1 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.ts",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "css": {
+      "backend": "tool",
+      "tool": "oxfmt-wrapper",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.css",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.css",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "compress",
+          "operation": "compress",
+          "input": "input.css",
+          "expected": "compress.expected",
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.css",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "java": {
+      "backend": "tool",
+      "tool": "java-wrapper",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.java",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.java",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "format_tabs",
+          "operation": "format",
+          "input": "input.java",
+          "expected": "format_tabs.expected",
+          "options": { "tab_width": -1 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.java",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.java",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "statement_format",
+          "operation": "format",
+          "input": "statement_input.java",
+          "expected": "statement_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "python": {
+      "backend": "tool",
+      "tool": "ruff",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.py",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.py",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "format_tabs",
+          "operation": "format",
+          "input": "input.py",
+          "expected": "format_tabs.expected",
+          "options": { "tab_width": -1 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.py",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "lua": {
+      "backend": "tool",
+      "tool": "stylua",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.lua",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.lua",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.lua",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "edge_format",
+          "operation": "format",
+          "input": "edge_input.lua",
+          "expected": "edge_format.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "sql": {
+      "backend": "tool",
+      "tool": "sleek",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.sql",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.sql",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "compress",
+          "operation": "compress",
+          "input": "input.sql",
+          "expected": "compress.expected",
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.sql",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "applescript": {
+      "backend": "tool",
+      "tool": "applescript-wrapper",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.applescript",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.applescript",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.applescript",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "ruby": {
+      "backend": "tool",
+      "tool": "rubocop",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.rb",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.rb",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.rb",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "scala": {
+      "backend": "tool",
+      "tool": "scalafmt",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.scala",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.scala",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.scala",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "rust": {
+      "backend": "tool",
+      "tool": "prettyplease-cli",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.rs",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.rs",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.rs",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "toml": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.toml",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "format_4spaces",
+          "operation": "format",
+          "input": "input.toml",
+          "expected": "format_4spaces.expected",
+          "options": { "tab_width": 4 },
+          "methods": ["pipeline"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.toml",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "properties": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.properties",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.properties",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    },
+    "ini": {
+      "backend": "native",
+      "cases": [
+        {
+          "name": "format_2spaces",
+          "operation": "format",
+          "input": "input.ini",
+          "expected": "format_2spaces.expected",
+          "options": { "tab_width": 2 },
+          "methods": ["pipeline", "cli"]
+        },
+        {
+          "name": "beautify_monokai",
+          "operation": "beautify",
+          "input": "input.ini",
+          "expected": "beautify_monokai.expected",
+          "options": { "style": "monokai" },
+          "methods": ["pipeline"]
+        }
+      ]
+    }
+  },
+  "highlight_languages": [
+    "go",
+    "json",
+    "yaml",
+    "xml",
+    "shell",
+    "bash",
+    "sh",
+    "zsh",
+    "html",
+    "java",
+    "lua",
+    "sql",
+    "javascript",
+    "typescript",
+    "css",
+    "scala",
+    "python",
+    "ruby",
+    "rust",
+    "applescript",
+    "toml",
+    "properties",
+    "ini"
+  ],
+  "invalid_inputs": [
+    { "name": "invalid_json", "lang": "json", "input": "{invalid}", "expect_error": true },
+    { "name": "invalid_xml", "lang": "xml", "input": "<root><unclosed>", "expect_error": true },
+    { "name": "invalid_yaml", "lang": "yaml", "input": "{: :}", "expect_error": true }
+  ],
+  "cli_tests": [
+    {
+      "name": "format_json_stdin",
+      "args": ["-l", "json", "format"],
+      "stdin": "{\"a\":1,\"b\":2}",
+      "checks": ["\"a\": 1"]
+    },
+    {
+      "name": "compress_json_stdin",
+      "args": ["-l", "json", "compress"],
+      "stdin": "{\n  \"a\": 1,\n  \"b\": 2\n}",
+      "checks": ["\"a\":1"]
+    },
+    {
+      "name": "highlight_json_stdin",
+      "args": ["-l", "json", "highlight"],
+      "stdin": "{\"a\":1}",
+      "checks": ["<"]
+    },
+    {
+      "name": "format_yaml_stdin",
+      "args": ["-l", "yaml", "format"],
+      "stdin": "name: test\nitems:\n    - one\n    - two",
+      "checks": ["name: test", "  - one"]
+    },
+    {
+      "name": "format_xml_stdin",
+      "args": ["-l", "xml", "format"],
+      "stdin": "<root><item>1</item></root>",
+      "checks": ["<root>", "  <item>1</item>"]
+    },
+    {
+      "name": "format_html_stdin",
+      "args": ["-l", "html", "format"],
+      "stdin": "<html><body><p>hi</p></body></html>",
+      "checks": ["<html>", "<p>"]
+    },
+    {
+      "name": "format_go_stdin",
+      "args": ["-l", "go", "format"],
+      "stdin": "package main\n\nfunc main(){println(\"hi\")}",
+      "checks": ["func main() {"]
+    },
+    {
+      "name": "format_shell_stdin",
+      "args": ["-l", "shell", "format"],
+      "need_tool": "shfmt",
+      "stdin": "if true; then\necho hi\nfi",
+      "checks": ["echo hi"]
+    },
+    {
+      "name": "format_javascript_stdin",
+      "args": ["-l", "javascript", "format"],
+      "need_tool": "oxfmt-wrapper",
+      "stdin": "const x=1;",
+      "checks": ["const x = 1;"]
+    },
+    {
+      "name": "format_typescript_stdin",
+      "args": ["-l", "typescript", "format"],
+      "need_tool": "oxfmt-wrapper",
+      "stdin": "let n:number=1;",
+      "checks": ["number", "= 1;"]
+    },
+    {
+      "name": "format_css_stdin",
+      "args": ["-l", "css", "format"],
+      "need_tool": "oxfmt-wrapper",
+      "stdin": ".a{color:red}",
+      "checks": ["color: red"]
+    },
+    {
+      "name": "format_java_stdin",
+      "args": ["-l", "java", "format"],
+      "need_tool": "java-wrapper",
+      "stdin": "class A{void m(){int x=1;}}",
+      "checks": ["class A"]
+    },
+    {
+      "name": "format_python_stdin",
+      "args": ["-l", "python", "format"],
+      "need_tool": "ruff",
+      "stdin": "x=1\ndef f():\n    return x",
+      "checks": ["x = 1"]
+    },
+    {
+      "name": "format_lua_stdin",
+      "args": ["-l", "lua", "format"],
+      "need_tool": "stylua",
+      "stdin": "local x=1",
+      "checks": ["local x = 1"]
+    },
+    {
+      "name": "format_sql_stdin",
+      "args": ["-l", "sql", "format"],
+      "need_tool": "sleek",
+      "stdin": "select a from t where a=1",
+      "checks": ["SELECT"]
+    },
+    {
+      "name": "format_applescript_stdin",
+      "args": ["-l", "applescript", "format"],
+      "need_tool": "applescript-wrapper",
+      "stdin": "set x to 1",
+      "checks": ["x"]
+    },
+    {
+      "name": "format_ruby_stdin",
+      "args": ["-l", "ruby", "format"],
+      "need_tool": "rubocop",
+      "stdin": "def greet(name)\nputs \"hi\"\nend",
+      "checks": ["def greet", "  puts"]
+    },
+    {
+      "name": "format_scala_stdin",
+      "args": ["-l", "scala", "format"],
+      "need_tool": "scalafmt",
+      "stdin": "object A { def m() = 1 }",
+      "checks": ["object A"]
+    },
+    {
+      "name": "format_rust_stdin",
+      "args": ["-l", "rust", "format"],
+      "need_tool": "prettyplease-cli",
+      "stdin": "fn main(){println!(\"hi\");}",
+      "checks": ["fn main() {", "println!"]
+    },
+    {
+      "name": "highlight_rust_stdin",
+      "args": ["-l", "rust", "highlight"],
+      "stdin": "fn main() { let x = 1; }",
+      "checks": ["<"]
+    },
+    {
+      "name": "format_toml_stdin",
+      "args": ["-l", "toml", "format"],
+      "stdin": "[database]\nserver=\"localhost\"",
+      "checks": ["[database]", "server"]
+    },
+    {
+      "name": "format_properties_stdin",
+      "args": ["-l", "properties", "format"],
+      "stdin": "app.name=MyApp\napp.version=1.0",
+      "checks": ["app.name", "app.version"]
+    },
+    {
+      "name": "format_ini_stdin",
+      "args": ["-l", "ini", "format"],
+      "stdin": "[database]\nserver=localhost",
+      "checks": ["[database]", "server"]
+    }
+  ]
+}
