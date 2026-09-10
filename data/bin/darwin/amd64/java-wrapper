@@ -9,10 +9,14 @@ if [[ "${1:-}" == "--version" || "${1:-}" == "-v" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# JAR 查找: 同目录 (打包后) → 上级 ../../ (源码树 data/bin/{os}/{arch}/ → data/bin/)
 JAR="${SCRIPT_DIR}/google-java-format.jar"
+if [[ ! -f "$JAR" ]]; then
+    JAR="${SCRIPT_DIR}/../../google-java-format.jar"
+fi
 
 if [[ ! -f "$JAR" ]]; then
-    echo "java-wrapper: 未找到 google-java-format.jar (${JAR})" >&2
+    echo "java-wrapper: 未找到 google-java-format.jar" >&2
     exit 1
 fi
 

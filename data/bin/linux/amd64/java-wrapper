@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="1.1.0"
+
+if [[ "${1:-}" == "--version" || "${1:-}" == "-v" ]]; then
+    echo "java-wrapper ${VERSION}"
+    exit 0
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# JAR 查找: 同目录 (打包后) → 上级 ../../ (源码树 data/bin/{os}/{arch}/ → data/bin/)
+JAR="${SCRIPT_DIR}/google-java-format.jar"
+if [[ ! -f "$JAR" ]]; then
+    JAR="${SCRIPT_DIR}/../../google-java-format.jar"
+fi
+
+if [[ ! -f "$JAR" ]]; then
+    echo "java-wrapper: 未找到 google-java-format.jar" >&2
+    exit 1
+fi
+
+# 读取 stdin
+input="$(cat)"
+
+# 空输入直接输出
+if [[ -z "$(printf '%s' "$input" | tr -d '[:space:]')" ]]; then
+    printf '%s' "$input"
+    exit 0
+fi
+
+# 检测是否为完整 Java 文件 (含 package/import/class/interface/enum 声明)
+if printf '%s' "$input" | grep -qE '^\s*(package\s+\w+|import\s+|(public\s+)?(class|interface|enum|@interface)\s+\w+)'; then
+    # 完整文件: 直接格式化
+    printf '%s' "$input" | java -jar "$JAR" --aosp -
+    exit 0
+fi
+
+# 代码片段: 先尝试包装为类 (适用于方法/字段声明)，失败则包装为方法 (适用于 for/if/while 等语句)
+indent="    "
+if result=$(printf '%s' "$input" | {
+    echo "class _FmtWrapper_ {"
+    printf '%s\n' "$input" | sed "s/^/${indent}/"
+    echo "}"
+} | java -jar "$JAR" --aosp - 2>&1); then
+    # 成功: 提取类体 (删除首行 class 声明和末行 }，移除一级缩进)
+    printf '%s' "$result" | sed -e '1d' -e '$d' -e 's/^    //'
+else
+    # 类级包装失败: 代码是语句级别 (for/if/while 等)，包装为方法重试
+    indent="        "
+    if result=$(printf '%s' "$input" | {
+        echo "class _FmtWrapper_ {"
+        echo "    void _fmt_() {"
+        printf '%s\n' "$input" | sed "s/^/${indent}/"
+        echo "    }"
+        echo "}"
+    } | java -jar "$JAR" --aosp - 2>&1); then
+        # 成功: 提取方法体 (跳过前2行 class+method 声明和后2行 }，移除二级缩进)
+        printf '%s' "$result" | awk 'NR>2{a[++n]=$0} END{for(i=1;i<=n-2;i++){sub(/^        /,"",a[i]);print a[i]}}'
+    else
+        echo "java-wrapper: 格式化失败" >&2
+        printf '%s' "$result" >&2
+        exit 1
+    fi
+fi

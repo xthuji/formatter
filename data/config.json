@@ -26,6 +26,13 @@
             "sh",
             "-c",
             "command -v apt-get \u003e/dev/null \u0026\u0026 apt-get install -y nodejs || (curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \u0026\u0026 apt-get install -y nodejs)"
+          ],
+          "windows": [
+            "winget",
+            "install",
+            "OpenJS.NodeJS.LTS",
+            "--accept-source-agreements",
+            "--accept-package-agreements"
           ]
         }
       },
@@ -50,6 +57,13 @@
             "install",
             "-y",
             "python3"
+          ],
+          "windows": [
+            "winget",
+            "install",
+            "Python.Python.3.12",
+            "--accept-source-agreements",
+            "--accept-package-agreements"
           ]
         }
       },
@@ -73,6 +87,13 @@
             "install",
             "-y",
             "default-jre"
+          ],
+          "windows": [
+            "winget",
+            "install",
+            "EclipseAdoptium.Temurin.21.JDK",
+            "--accept-source-agreements",
+            "--accept-package-agreements"
           ]
         }
       },
@@ -96,6 +117,13 @@
             "install",
             "-y",
             "ruby"
+          ],
+          "windows": [
+            "winget",
+            "install",
+            "Ruby.Ruby.3.3",
+            "--accept-source-agreements",
+            "--accept-package-agreements"
           ]
         }
       }
@@ -152,6 +180,13 @@
             "1.75.0"
           ],
           "linux": [
+            "gem",
+            "install",
+            "rubocop",
+            "--version",
+            "1.75.0"
+          ],
+          "windows": [
             "gem",
             "install",
             "rubocop",

@@ -148,11 +148,15 @@ func NewManager(installDir string) *Manager {
 		if exePath, err := os.Executable(); err == nil {
 			exeDir := filepath.Dir(exePath)
 			parentDir := filepath.Dir(exeDir)
+			// 平台子目录: data/bin/{goos}/{goarch}/ (源码树中按平台组织)
+			platformBin := filepath.Join(parentDir, "data", "bin", runtime.GOOS, runtime.GOARCH)
+			// 回退: 扁平 data/bin/ (兼容旧版布局)
 			for _, candidate := range []string{
 				filepath.Join(parentDir, "Resources", "bin"), // macOS App bundle
 				filepath.Join(exeDir, "bin"),                 // 同级 bin/
-				filepath.Join(exeDir, "data", "bin"),         // 开发环境 data/bin
-				filepath.Join(parentDir, "data", "bin"),      // 父级 data/bin
+				platformBin,                                  // 开发环境 data/bin/{os}/{arch}
+				filepath.Join(exeDir, "data", "bin"),         // 开发环境 data/bin (旧版)
+				filepath.Join(parentDir, "data", "bin"),      // 父级 data/bin (旧版)
 			} {
 				if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 					installDir = candidate
@@ -234,6 +238,10 @@ func (m *Manager) FindBinary(name string) (string, error) {
 		}
 		// 需要运行时的工具 (JAR/脚本) 由解释器执行，本身不需要可执行位
 		if meta.Runtime != RuntimeNone {
+			return exePath, nil
+		}
+		// Windows .bat 脚本不需要可执行权限
+		if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(exePath), ".bat") {
 			return exePath, nil
 		}
 		// 独立二进制必须有可执行权限
@@ -449,6 +457,10 @@ func (m *Manager) FindInInstallDir(name string) (string, bool) {
 	if meta.Runtime != RuntimeNone {
 		return exePath, true
 	}
+	// Windows .bat 脚本不需要可执行权限
+	if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(exePath), ".bat") {
+		return exePath, true
+	}
 	// 独立二进制必须有可执行权限
 	if info.Mode()&0111 != 0 {
 		return exePath, true
@@ -563,6 +575,12 @@ func windowsExeName(name string) string {
 	}
 	if filepath.Ext(name) != "" {
 		return name
+	}
+	// Windows 上 wrapper 脚本使用 .bat 扩展名 (如 oxfmt-wrapper.bat, java-wrapper.bat)
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(name + ".bat"); err == nil {
+			return name + ".bat"
+		}
 	}
 	return name + ".exe"
 }

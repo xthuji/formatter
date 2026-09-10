@@ -14,18 +14,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-14
             platform: darwin
-            artifact: "*.7z"
+            arch: amd64
+          - os: macos-14
+            platform: darwin
+            arch: arm64
           - os: ubuntu-22.04
             platform: linux
-            artifact: "*.tar.gz"
+            arch: amd64
           - os: windows-latest
             platform: windows
-            artifact: "*.zip"
+            arch: amd64
 
-    name: Build (${{ matrix.platform }})
+    name: Build (${{ matrix.platform }}/${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
 
     steps:
       - name: Checkout
@@ -64,13 +70,39 @@ jobs:
         shell: bash
         run: |
           chmod +x ./scripts/run_tools.sh ./scripts/install-bin.sh
-          ./scripts/run_tools.sh build
+          ./scripts/run_tools.sh build --platform=${{ matrix.platform }}/${{ matrix.arch }}
 
       - name: List artifacts
         shell: bash
         run: ls -lh release/
 
-      - name: Upload release assets
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.7z
+            release/*.tar.gz
+            release/*.zip
+          if-no-files-found: warn
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: release
+          merge-multiple: true
+
+      - name: List release artifacts
+        run: ls -lh release/
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -78,15 +110,24 @@ jobs:
           body: |
             ## Formatter ${{ github.ref_name }}
 
-            Auto-built desktop app for all platforms:
-            - **macOS**: .app bundle + 7z archive (桌面应用 + CLI)
-            - **Linux**: tar.gz archive (桌面应用 + CLI，含 install.sh 安装脚本)
-            - **Windows**: zip archive (桌面应用 + CLI)
+            Auto-built desktop app for multiple platforms and architectures:
+
+            ### 产物列表
+            | 平台 | 架构 | 文件 | 说明 |
+            |------|------|------|------|
+            | macOS | amd64 (Intel) | `.7z` | .app 桌面应用 + CLI |
+            | macOS | arm64 (Apple Silicon) | `.7z` | .app 桌面应用 + CLI |
+            | Linux | amd64 | `.tar.gz` | 桌面应用 + CLI（含 install.sh 安装脚本） |
+            | Windows | amd64 | `.zip` | 桌面应用 + CLI |
 
             ### 使用方式
             - **macOS**: 解压 7z，双击 Formatter.app 启动桌面应用
             - **Linux**: 解压 tar.gz，运行 `install.sh` 安装或直接执行 `Formatter/bin/formatter`
             - **Windows**: 解压 zip，运行 Formatter.exe 启动桌面应用
-          files: release/${{ matrix.artifact }}
+          files: |
+            release/*.7z
+            release/*.tar.gz
+            release/*.zip
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

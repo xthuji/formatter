@@ -14,9 +14,10 @@ APP_VERSION="${APP_VERSION:-1.0.0}" # 源自 data/version.txt，回退默认值
 BUILD_DIR="${PROJECT_ROOT}/build"
 RELEASE_DIR="${PROJECT_ROOT}/release"
 DATA_DIR="${PROJECT_ROOT}/data"
-BIN_DIR="${DATA_DIR}/bin"
+BIN_ROOT="${DATA_DIR}/bin"          # 跨平台文件目录 (JAR 等)
+# BIN_DIR 在 detect_platform() 后设置为 ${BIN_ROOT}/${TARGET_GOOS}/${TARGET_GOARCH}
 TESTS_DIR="${PROJECT_ROOT}/tests"
-ICON_SVG="${DATA_DIR}/icon/icon.svg"
+ICON_PNG="${DATA_DIR}/icon/icon.png"
 GO_MIN_VERSION="1.21"
 INSTALL_BIN_SCRIPT="${SCRIPT_DIR}/install-bin.sh"
 
@@ -91,68 +92,78 @@ detect_platform() {
             *) TARGET_GOARCH="arm64" ;;
         esac
     fi
+    # 平台特定的二进制目录: data/bin/{os}/{arch}/
+    BIN_DIR="${BIN_ROOT}/${TARGET_GOOS}/${TARGET_GOARCH}"
 }
 
 # =============================================================================
-# 图标生成逻辑
+# 图标生成逻辑 (基于预转换的 icon.png 1024x1024)
 # =============================================================================
 generate_icon_png() {
     local size="$1" output="$2"
-    [[ ! -f "$ICON_SVG" ]] && { print_warn "icon.svg 不存在"; return 1; }
+    [[ ! -f "$ICON_PNG" ]] && { print_warn "icon.png 不存在"; return 1; }
 
-    if command -v rsvg-convert &>/dev/null; then
-        rsvg-convert -w "$size" -h "$size" "$ICON_SVG" -o "$output" 2>/dev/null && return 0
+    # macOS 自带 sips 即可缩放，无需额外工具
+    if command -v sips &>/dev/null; then
+        sips -z "$size" "$size" "$ICON_PNG" --out "$output" 2>/dev/null && return 0
     fi
-    if command -v qlmanage &>/dev/null; then
-        local tmp_dir generated
-        tmp_dir="$(mktemp -d)"
-        qlmanage -t -s "$size" -o "$tmp_dir" "$ICON_SVG" 2>/dev/null
-        generated="${tmp_dir}/icon.svg.png"
-        if [[ -f "$generated" ]]; then
-            cp "$generated" "$output"
-            rm -rf "$tmp_dir"
-            return 0
-        fi
-        rm -rf "$tmp_dir"
+    # 回退: ImageMagick
+    if command -v magick &>/dev/null; then
+        magick "$ICON_PNG" -resize "${size}x${size}" "$output" 2>/dev/null && return 0
+    elif command -v convert &>/dev/null; then
+        convert "$ICON_PNG" -resize "${size}x${size}" "$output" 2>/dev/null && return 0
     fi
-    if [[ -f "$BUILD_DIR/appicon.png" ]]; then
-        sips -z "$size" "$size" "$BUILD_DIR/appicon.png" --out "$output" 2>/dev/null && return 0
-    fi
+    # 最终回退: 直接复制源 PNG (无缩放工具时)
+    cp "$ICON_PNG" "$output" 2>/dev/null && return 0
     return 1
 }
 
 generate_icns() {
     local output_icns="$1"
-    [[ ! -f "$ICON_SVG" ]] && { print_warn "icon.svg 不存在，跳过 .icns 生成"; return 1; }
+    [[ ! -f "$ICON_PNG" ]] && { print_warn "icon.png 不存在，跳过 .icns 生成"; return 1; }
 
-    print_step "从 icon.svg 生成 .icns ..."
+    print_step "从 icon.png 生成 .icns ..."
     local tmp_base iconset_dir
     tmp_base="$(mktemp -d)"
     iconset_dir="${tmp_base}/AppIcon.iconset"
     mkdir -p "$iconset_dir"
 
-    # 使用清理函数确保无论如何退出都能清理临时文件
-    local cleanup_status=1
+    # 生成所有尺寸，允许部分失败 (至少需要一个成功)
+    local success_count=0 total_count=0
     local sizes=(16 32 128 256 512)
     for s in "${sizes[@]}"; do
         local s2=$((s * 2))
-        if ! generate_icon_png "$s" "${iconset_dir}/icon_${s}x${s}.png" || \
-           ! generate_icon_png "$s2" "${iconset_dir}/icon_${s}x${s}@2x.png"; then
-            print_fail "生成 ${s}x${s} / ${s}x${s}@2x PNG 失败"
-            rm -rf "$tmp_base"
-            return 1
+        total_count=$((total_count + 2))
+        if generate_icon_png "$s" "${iconset_dir}/icon_${s}x${s}.png"; then
+            success_count=$((success_count + 1))
+        else
+            print_warn "生成 ${s}x${s} PNG 失败"
+        fi
+        if generate_icon_png "$s2" "${iconset_dir}/icon_${s}x${s}@2x.png"; then
+            success_count=$((success_count + 1))
+        else
+            print_warn "生成 ${s}x${s}@2x PNG 失败"
         fi
     done
+
+    if [[ $success_count -eq 0 ]]; then
+        print_fail "所有尺寸 PNG 生成均失败，无法创建 .icns"
+        rm -rf "$tmp_base"
+        return 1
+    fi
+    print_info "  PNG 生成: ${success_count}/${total_count} 成功"
 
     if command -v iconutil &>/dev/null; then
         if iconutil -c icns "$iconset_dir" -o "$output_icns" 2>/dev/null; then
             print_ok ".icns 生成成功: $(basename "$output_icns")"
-            cleanup_status=0
+            rm -rf "$tmp_base"
+            return 0
         fi
     fi
-    
+
+    print_fail "iconutil 不可用或 .icns 转换失败"
     rm -rf "$tmp_base"
-    return $cleanup_status
+    return 1
 }
 
 # 生成 Info.plist 内容
@@ -182,7 +193,7 @@ generate_info_plist() {
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSMinimumSystemVersion</key>
-    <string>10.13.0</string>
+    <string>12.0</string>
 </dict>
 </plist>
 PLIST
@@ -301,6 +312,10 @@ step_build() {
         export CGO_LDFLAGS="$(pkg-config --libs gtk+-3.0 webkit2gtk-4.0)"
     elif [[ "$TARGET_GOOS" == "darwin" ]]; then
         export CGO_LDFLAGS="-framework UniformTypeIdentifiers"
+        # 设置最低 macOS 部署版本 (从环境变量或默认 12.0)
+        local macos_min="${MACOSX_DEPLOYMENT_TARGET:-12.0}"
+        export CGO_CFLAGS="${CGO_CFLAGS:-} -mmacosx-version-min=${macos_min}"
+        export CGO_LDFLAGS="${CGO_LDFLAGS} -mmacosx-version-min=${macos_min}"
         # darwin 跨架构编译需要指定目标 triple (amd64↔arm64)
         if $is_cross; then
             local darwin_target
@@ -309,10 +324,11 @@ step_build() {
                 arm64)  darwin_target="arm64-apple-darwin" ;;
             esac
             if [[ -n "$darwin_target" ]]; then
-                export CGO_CFLAGS="-target ${darwin_target}"
+                export CGO_CFLAGS="${CGO_CFLAGS} -target ${darwin_target}"
                 print_info "  交叉编译目标: ${darwin_target}"
             fi
         fi
+        print_info "  最低部署版本: macOS ${macos_min}"
     fi
     # Windows: CGO_ENABLED=1 即可，go-webview2 自带 WebView2Loader，无需额外系统库
 
@@ -325,7 +341,7 @@ step_build() {
         print_fail "二进制构建失败"; fail "build"; return 1
     fi
 
-    # 3. 下载独立二进制工具到 data/bin/
+    # 3. 下载独立二进制工具到 data/bin/{os}/{arch}/
     # 使用 install-bin.sh 而非运行刚构建的二进制:
     #   - 支持交叉编译 (无法运行目标平台二进制)
     #   - 有更完善的代理重试/错误处理
@@ -333,7 +349,7 @@ step_build() {
     print_step "检查并下载独立二进制工具..."
     if dir_has_files "$BIN_DIR"; then
         local existing=$(find "$BIN_DIR" -maxdepth 1 -mindepth 1 | wc -l | tr -d ' ')
-        print_info "  data/bin/ 已有 ${existing} 个工具，跳过下载 (如需重装先执行 clean)"
+        print_info "  ${BIN_DIR#${PROJECT_ROOT}/}/ 已有 ${existing} 个工具，跳过下载"
     else
         local install_platform="${TARGET_GOOS}/${TARGET_GOARCH}"
         if bash "$INSTALL_BIN_SCRIPT" --platform="$install_platform" --yes 2>&1 | sed 's/^/    /'; then
@@ -347,6 +363,16 @@ step_build() {
             print_warn "部分独立二进制工具下载失败 (可后续手动运行: ./scripts/install-bin.sh --proxy)"
         fi
     fi
+
+    # 3.5 复制跨平台文件 (JAR 等) 从 BIN_ROOT 到 BIN_DIR (如尚未存在)
+    for f in "$BIN_ROOT"/*; do
+        [[ -f "$f" ]] || continue
+        local base="$(basename "$f")"
+        if [[ ! -f "${BIN_DIR}/${base}" ]]; then
+            cp "$f" "${BIN_DIR}/${base}" 2>/dev/null || true
+            print_info "  跨平台文件已复制: ${base}"
+        fi
+    done
 
     # 4. 复制 bin/ 工具到 build/bin/
     if dir_has_files "$BIN_DIR"; then
@@ -380,15 +406,12 @@ step_build() {
             print_ok "默认配置已嵌入 MacOS/config.json"
         fi
 
-        if ! $is_cross; then
-            local icns_path="${resources_dir}/AppIcon.icns"
-            if generate_icns "$icns_path"; then
-                print_ok "图标已嵌入"
-            else
-                print_warn "图标生成失败，跳过"
-            fi
+        # 图标生成是纯图像处理 (SVG→PNG→ICNS)，与目标架构无关，交叉编译时也可执行
+        local icns_path="${resources_dir}/AppIcon.icns"
+        if generate_icns "$icns_path"; then
+            print_ok "图标已嵌入"
         else
-            print_warn "交叉编译模式，跳过图标生成"
+            print_warn "图标生成失败，跳过"
         fi
 
         if dir_has_files "$BIN_DIR"; then
@@ -532,13 +555,13 @@ INSTALL_EOF
                 local default_config="${DATA_DIR}/config.json"
                 [[ -f "$default_config" ]] && cp "$default_config" "$stage_dir/config.json"
 
-                # 尝试生成 icon.ico (需要 ImageMagick)
-                if [[ -f "$ICON_SVG" ]] && command -v magick &>/dev/null; then
-                    magick "$ICON_SVG" -define icon:auto-resize=256,128,64,48,32,16 \
+                # 从 icon.png 生成 icon.ico (需要 ImageMagick)
+                if [[ -f "$ICON_PNG" ]] && command -v magick &>/dev/null; then
+                    magick "$ICON_PNG" -define icon:auto-resize=256,128,64,48,32,16 \
                         "$stage_dir/icon.ico" 2>/dev/null && \
                         print_ok "图标已嵌入 (icon.ico)" || true
-                elif [[ -f "$ICON_SVG" ]] && command -v convert &>/dev/null; then
-                    convert "$ICON_SVG" -define icon:auto-resize=256,128,64,48,32,16 \
+                elif [[ -f "$ICON_PNG" ]] && command -v convert &>/dev/null; then
+                    convert "$ICON_PNG" -define icon:auto-resize=256,128,64,48,32,16 \
                         "$stage_dir/icon.ico" 2>/dev/null && \
                         print_ok "图标已嵌入 (icon.ico)" || true
                 fi

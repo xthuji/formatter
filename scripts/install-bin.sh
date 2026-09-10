@@ -26,7 +26,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_FILE="${PROJECT_ROOT}/data/config.json"
 DATA_DIR="${PROJECT_ROOT}/data"
-BIN_DIR="${DATA_DIR}/bin"
+BIN_ROOT="${DATA_DIR}/bin"          # 跨平台文件目录 (JAR 等)
+# BIN_DIR 在 detect_platform() 后根据平台设置 (见下方)
 DOWNLOADS_DIR="${PROJECT_ROOT}/.downloads"
 
 # ---- GitHub 代理配置 ----
@@ -130,6 +131,8 @@ detect_platform() {
             *) print_fail "不支持的架构: $(uname -m)"; exit 1 ;;
         esac
     fi
+    # 平台特定的二进制目录: data/bin/{os}/{arch}/
+    BIN_DIR="${BIN_ROOT}/${TARGET_GOOS}/${TARGET_GOARCH}"
 }
 
 # =============================================================================
@@ -420,11 +423,12 @@ is_installed() {
     ext="$(exe_suffix)"
     [[ -x "${BIN_DIR}/${name}${ext}" ]] && return 0
     [[ -f "${BIN_DIR}/${name}${ext}" ]] && return 0
-    # 按 executable 字段检查 (处理 JAR 如 google-java-format.jar)
+    # 按 executable 字段检查 (处理 JAR 如 google-java-format.jar，跨平台文件在 BIN_ROOT)
     local exe_name
     exe_name="$(jq_get ".binary.tools[] | select(.name==\"${name}\") | .executable")"
-    if [[ -n "$exe_name" && -f "${BIN_DIR}/${exe_name}" ]]; then
-        return 0
+    if [[ -n "$exe_name" ]]; then
+        [[ -f "${BIN_DIR}/${exe_name}" ]] && return 0
+        [[ -f "${BIN_ROOT}/${exe_name}" ]] && return 0
     fi
 
     # 对 source=install 的工具 (如 rubocop)，检查系统 PATH 是否已安装

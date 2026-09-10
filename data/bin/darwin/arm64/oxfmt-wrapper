@@ -1,0 +1,53 @@
+#!/bin/bash
+# oxfmt-wrapper - 包装 oxfmt 以支持 stdin/stdout 格式化
+# 用法: echo "code" | oxfmt-wrapper js
+# oxfmt 不支持 stdin 输入，本脚本通过临时文件中转:
+#   1. 从 stdin 读取代码写入临时文件
+#   2. 调用 oxfmt --write 格式化临时文件
+#   3. 输出格式化后的内容到 stdout
+
+ext="${1:-js}"
+
+# --version 支持 (供 verify_cmd 使用)
+if [ "$ext" = "--version" ]; then
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    oxfmt_bin="$script_dir/oxfmt"
+    if [ ! -x "$oxfmt_bin" ]; then
+        oxfmt_bin="$(command -v oxfmt 2>/dev/null || echo oxfmt)"
+    fi
+    if [ -x "$oxfmt_bin" ]; then
+        "$oxfmt_bin" --version
+    else
+        echo "oxfmt-wrapper 1.0.0 (oxfmt not installed)"
+    fi
+    exit 0
+fi
+
+# 使用 mktemp -d 创建唯一临时目录 (macOS BSD mktemp 要求 X 在模板末尾,
+# 不能直接用 "XXXXXX.$ext"; 用独立目录再放带扩展名的文件, 兼容 macOS/Linux 且避免并行冲突)
+tmpdir=$(mktemp -d "/tmp/oxfmt.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT
+tmpfile="$tmpdir/input.$ext"
+
+cat > "$tmpfile"
+
+# 在脚本同目录查找 oxfmt 二进制
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+oxfmt_bin="$script_dir/oxfmt"
+
+if [ ! -x "$oxfmt_bin" ]; then
+    oxfmt_bin="$(command -v oxfmt 2>/dev/null || echo oxfmt)"
+fi
+
+# oxfmt 原地格式化 (不支持 stdin/stdout)
+# Don't swallow errors - let them propagate to caller
+# Capture stderr to preserve error messages for CmdAdapter
+stderr_output=$("$oxfmt_bin" --write "$tmpfile" 2>&1 1>/dev/null)
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error: oxfmt format failed: $stderr_output" >&2
+    exit 1
+fi
+
+# 输出格式化结果
+cat "$tmpfile"

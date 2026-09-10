@@ -218,8 +218,9 @@ SQL 压缩优先用 [GoSQLX](../../src/compressor/native/sql.go#L13-L43) 解析�
 
 | 平台 | 构建参数 | 说明 |
 |------|----------|------|
-| macOS | `CGO_ENABLED=1`，build tags: `desktop,production` | Wails WebView 依赖 cgo |
-| Linux / Windows | `CGO_ENABLED=0`，无 build tags | 纯 Go 构建，CLI + Web UI |
+| macOS | `CGO_ENABLED=1`，build tags: `desktop,production` | Wails WebView 依赖 cgo；链接 `-framework UniformTypeIdentifiers`；跨架构 (amd64↔arm64) 加 `-target clang`；打包 .app + 7z |
+| Linux | `CGO_ENABLED=1`，build tags: `desktop,production` | GTK3 + WebKit2GTK (pkg-config)；打包 tar.gz 含 .desktop + install.sh |
+| Windows | `CGO_ENABLED=1`，build tags: `desktop,production` | go-webview2 自带 WebView2Loader，无需额外系统库；打包 zip |
 | 平台特定文件 | `//go:build` 标签 | 用于平台特定源文件 |
 | PATH 增强 | [EnrichPath()](../../src/appcommon/path.go#L25-L61) | 仅 macOS 生效，解决 GUI 应用 PATH 问题 |
 

@@ -13,7 +13,7 @@
 - **语言别名**：bash/sh/zsh 统一解析为 shell，yml 解析为 yaml，无需重复配置
 - **15 款高亮主题**：7 款浅色 + 8 款深色，支持实时预览
 - **单文件部署**：默认配置与前端资源均通过 `//go:embed` 嵌入二进制，配置文件与可执行文件同目录持久化
-- **跨平台**：macOS 提供 .app 桌面应用 + CLI；Linux/Windows 提供 CLI + Web UI
+- **跨平台**：三平台均支持桌面应用 + CLI + Web UI；macOS 提供 amd64 (Intel) 与 arm64 (Apple Silicon) 两种架构
 
 ## 快速开始
 
@@ -358,11 +358,11 @@ formatter/
 
 ### 平台构建
 
-| 平台 | CGO | Build Tags | 说明 |
-|------|-----|-----------|------|
-| macOS | `CGO_ENABLED=1` | `desktop,production` | 需链接 `-framework UniformTypeIdentifiers`，打包 .app |
-| Linux | `CGO_ENABLED=0` | 无 | 纯 Go 构建，CLI + Web UI |
-| Windows | `CGO_ENABLED=0` | 无 | 纯 Go 构建，CLI + Web UI |
+| 平台 | 架构 | CGO | Build Tags | 说明 |
+|------|------|-----|-----------|------|
+| macOS | amd64 (Intel), arm64 (Apple Silicon) | `CGO_ENABLED=1` | `desktop,production` | 链接 `-framework UniformTypeIdentifiers`，跨架构加 `-target clang`，打包 .app + 7z |
+| Linux | amd64 | `CGO_ENABLED=1` | `desktop,production` | GTK3 + WebKit2GTK，打包 tar.gz (含 .desktop + install.sh) |
+| Windows | amd64 | `CGO_ENABLED=1` | `desktop,production` | go-webview2 自带 WebView2Loader，打包 zip |
 
 ## 测试
 
