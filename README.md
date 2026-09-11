@@ -23,12 +23,18 @@
 # 交互式菜单（无参数默认进入菜单模式）
 ./scripts/run_tools.sh
 
-# 构建 App（二进制 + .app，含图标 + 内嵌工具）
+# 构建当前平台 App（自动准备系统依赖 → 编译 → 内嵌工具 → 打包到 release/）
 ./scripts/run_tools.sh build
+
+# 指定目标平台构建（macOS 跨架构自动加 clang -target）
+./scripts/run_tools.sh build --platform=darwin/arm64
 
 # 编译并立即启动 App
 ./scripts/run_tools.sh run
 ```
+
+> 三平台（macOS / Linux / Windows）的构建依赖安装、CGO 参数、build tags、图标与
+> 打包逻辑全部集中在 `scripts/run_tools.sh` 中，CI 只负责 runner 引导与产物上传。
 
 ### CLI 使用
 
@@ -59,10 +65,10 @@ echo 'def hello(): print("world")' | ./Formatter format --lang auto
 
 ```bash
 ./scripts/run_tools.sh build
-open ./build/bin/Formatter.app
+open ./release/Formatter.app
 ```
 
-构建产物 `build/bin/Formatter.app` 双击即可打开原生窗口。App 提供 3 个功能页面（侧边栏按钮鼠标悬停时显示对应标题提示）：
+构建产物 `release/Formatter.app` 双击即可打开原生窗口。App 提供 3 个功能页面（侧边栏按钮鼠标悬停时显示对应标题提示）：
 
 | 页面 | 功能 | tooltip |
 |------|------|---------|
@@ -75,7 +81,7 @@ open ./build/bin/Formatter.app
 构建得到的 App 内部二进制同时支持桌面应用和 CLI 命令：
 
 ```bash
-APP=./build/bin/Formatter.app/Contents/MacOS/Formatter
+APP=./release/Formatter.app/Contents/MacOS/Formatter
 $APP format main.go                       # 格式化
 $APP compress main.js                     # 压缩
 $APP highlight main.py                    # 高亮
@@ -97,8 +103,9 @@ formatter/
 │   ├── icon/             # App 图标源文件
 │   └── bin/              # 三方二进制工具（构建时打包进 .app）
 ├── scripts/
-│   ├── run_tools.sh      # 主工具脚本（build/install-bin/test/clean/run）
-│   └── install-bin.sh    # 三方二进制工具安装脚本
+│   ├── run_tools.sh      # 主构建脚本（依赖准备/编译/打包，三平台统一入口）
+│   ├── install-bin.sh    # 三方二进制工具安装脚本（--bundled-only 供构建调用）
+│   └── release.sh        # 打 tag 发布脚本
 ├── src/
 │   ├── main.go           # 统一入口（CLI / Wails 自动分发）
 │   ├── cli.go            # CLI 命令定义（cobra）
@@ -116,7 +123,10 @@ formatter/
 ├── tests/                # 单元测试 + 配置化集成测试
 │   └── testdata/         # 测试数据与 test_cases.json 配置
 ├── docs/                 # 技术文档
-└── build/                # 构建产物（可删除）
+├── .github/workflows/
+│   └── release.yml       # CI：仅 runner 引导 + 调用 run_tools.sh + 产物上传
+├── build/                # 中间构建产物（可删除）
+└── release/              # 最终发布产物（可删除）
 ```
 
 ## 配置架构
@@ -333,9 +343,10 @@ formatter/
 ## 构建命令一览
 
 ```bash
-./scripts/run_tools.sh build        # 构建 App（二进制 + .app，含图标 + 内嵌工具）
+./scripts/run_tools.sh build        # 构建当前平台 App（依赖 → 编译 → 内嵌工具 → 打包）
 ./scripts/run_tools.sh install-bin  # 下载三方二进制到 data/bin/
 ./scripts/run_tools.sh run          # 编译并立即启动 App
+./scripts/run_tools.sh server       # 编译并运行 Web Server（前台）
 ./scripts/run_tools.sh test         # 单元测试 + 覆盖率
 ./scripts/run_tools.sh clean        # 清理构建产物
 ```
@@ -352,17 +363,30 @@ formatter/
 
 选项：
 
-- `--platform=OS/ARCH`：指定目标平台（如 `darwin/arm64`、`linux/amd64`、`windows/amd64`）
+- `--platform=OS/ARCH`：指定目标平台（`darwin/amd64`、`darwin/arm64`、`linux/amd64`、`windows/amd64`）
+- `--skip-deps`：跳过系统构建依赖自动安装（环境已就绪时用）
 - `--tool=<name>`：install-bin 仅下载指定工具
-- `--all`：install-bin 含 npm/pip/gem 工具
+- `--all`：install-bin 含运行时环境检测
+- `--addr=<addr>` / `--no-open` / `--browser`：server 运行参数
 
 ### 平台构建
 
-| 平台 | 架构 | CGO | Build Tags | 说明 |
-|------|------|-----|-----------|------|
-| macOS | amd64 (Intel), arm64 (Apple Silicon) | `CGO_ENABLED=1` | `desktop,production` | 链接 `-framework UniformTypeIdentifiers`，跨架构加 `-target clang`，打包 .app + 7z |
-| Linux | amd64 | `CGO_ENABLED=1` | `desktop,production` | GTK3 + WebKit2GTK，打包 tar.gz (含 .desktop + install.sh) |
-| Windows | amd64 | `CGO_ENABLED=1` | `desktop,production` | go-webview2 自带 WebView2Loader，打包 zip |
+| 平台 | 架构 | CGO | Build Tags | 产物 | 说明 |
+|------|------|-----|-----------|------|------|
+| macOS | amd64 (Intel), arm64 (Apple Silicon) | `CGO_ENABLED=1` | `desktop,production` | `Formatter-<ver>-darwin-<arch>.7z` | 链接 `-framework UniformTypeIdentifiers`；跨架构自动加 `clang -target`；打包 .app（icns + Info.plist + 内嵌工具）+ ad-hoc 签名；无 7z 时回退 .zip |
+| Linux | amd64 | `CGO_ENABLED=1` | `desktop,production[,webkit2_41]` | `Formatter-<ver>-linux-amd64.tar.gz` | 脚本自动 apt/dnf/pacman/zypper 安装 GTK3 + WebKit2GTK，并探测 4.0/4.1 自动追加 `webkit2_41` tag；包内含 .desktop + 图标 + install.sh |
+| Windows | amd64 | `CGO_ENABLED=0` | `desktop,production` | `Formatter-<ver>-windows-amd64.zip` | go-webview2 动态加载 WebView2Loader.dll，无需 MinGW/gcc；包含 Formatter.exe + config.json + icon.ico + tools/ |
+
+- 三平台产物命名统一为 `Formatter-<版本>-<os>-<arch>.<ext>`，版本取自 `data/version.txt`，输出到 `release/`
+- macOS 最低部署版本由脚本统一定为 `12.0`（无需在 CI 设置 `MACOSX_DEPLOYMENT_TARGET`）
+- 构建时调用 `install-bin.sh --bundled-only`，仅拉取需内嵌的 `source=download` 工具（`rubocop` 等 `source=install` 工具不在构建机上安装）
+
+### CI 构建
+
+`.github/workflows/release.yml`（`v*` tag 触发）只做三件事：checkout、`setup-go`（`go-version-file: go.mod`）、
+调用 `./scripts/run_tools.sh build --platform=...` 并上传 `release/` 产物。
+所有系统依赖（apt GTK/WebKit、brew p7zip）、编译参数与打包均由脚本自己完成，
+因此本地执行一条命令就能得到与 CI 完全一致的产物。
 
 ## 测试
 
@@ -382,7 +406,8 @@ formatter/
 
 ```bash
 # 环境要求
-Go >= 1.21
+Go >= 1.26        # 以 go.mod 的 go 指令为准，脚本会自动解析
+macOS: Xcode Command Line Tools (CGO 依赖)
 
 # 开发流程
 ./scripts/run_tools.sh test    # 单元测试

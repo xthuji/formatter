@@ -118,6 +118,6 @@ C4Context
 - 纯 Go 核心保证可维护性，便于交叉编译
 
 **负面**：
-- macOS 需 CGO（Wails 依赖 WKWebView），构建需 Xcode 工具链，交叉编译受限
+- macOS 需 CGO（Wails 依赖 WKWebView），构建需 Xcode 工具链；Linux 桌面版需在 Linux 宿主上构建（GTK/WebKit2GTK 系统库），因此三平台 App 分别由对应 OS 的 CI runner 构建
 - 前端无框架支持，复杂交互需手写 DOM 操作，后续维护成本随交互复杂度上升
 - macOS GUI 需 [EnrichPath()](../../src/appcommon/path.go) 特殊处理 PATH 注入（GUI 应用不继承 shell PATH）

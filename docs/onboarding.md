@@ -2,8 +2,10 @@
 > 生成时间：2026-08-01 ｜ 代码版本：master@9b25e57
 
 ## 1. 前置准备
-- Go 1.26.1+ (来自 go.mod)
+- Go 1.26.1+ (来自 go.mod，构建脚本会自动解析版本要求)
 - macOS: 需 Xcode Command Line Tools (CGO 依赖): `xcode-select --install`
+- Linux: 构建桌面 App 需 GTK3 + WebKit2GTK 开发包，`run_tools.sh build` 会自动 apt/dnf/pacman/zypper 安装
+- Windows: 无需 C 工具链 (`CGO_ENABLED=0`)，Git Bash 下运行脚本即可
 - IDE: VS Code (gopls) 或 GoLand
 - 可选运行时: Java (java-wrapper), Ruby (rubocop)
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0` (开发模式需要)
@@ -45,8 +47,9 @@ formatter/
 │   │   └── ...                 # 其余语言目录
 │   └── *_test.go           # 测试代码
 ├── scripts/                # 构建脚本
-│   ├── run_tools.sh        # 交互式构建菜单
-│   └── install-bin.sh      # 工具下载脚本
+│   ├── run_tools.sh        # 三平台统一构建入口 (依赖准备/编译/打包) + 交互菜单
+│   ├── install-bin.sh      # 工具下载脚本 (--bundled-only 供构建调用)
+│   └── release.sh          # 打 tag 发布脚本
 ├── docs/                   # 文档
 ├── go.mod / go.sum
 └── wails.json              # Wails 项目配置
@@ -60,7 +63,7 @@ formatter/
 | CLI 完整流程 | `go run ./src run -l json -i input.json` | 格式化→压缩→高亮 |
 | Wails 开发模式 | `wails dev` | 桌面应用热重载 |
 | Web UI | `go run ./src serve --addr :8080` | 启动 Web 服务 |
-| 构建桌面应用 | `./scripts/run_tools.sh` | 交互菜单 (build/run/server) |
+| 构建桌面应用 | `./scripts/run_tools.sh build` | 自动装依赖 → 编译 → 打包到 release/ (交互菜单无参数直接跑脚本) |
 
 ```mermaid
 flowchart TD

@@ -216,11 +216,15 @@ SQL 压缩优先用 [GoSQLX](../../src/compressor/native/sql.go#L13-L43) 解析�
 
 ### 3.3 平台适配
 
+三平台构建统一由 `scripts/run_tools.sh build` 完成（系统依赖安装、CGO 参数、build tags、图标、打包），
+CI workflow 只做 runner 引导与产物上传，不在其中写构建逻辑。
+
 | 平台 | 构建参数 | 说明 |
 |------|----------|------|
-| macOS | `CGO_ENABLED=1`，build tags: `desktop,production` | Wails WebView 依赖 cgo；链接 `-framework UniformTypeIdentifiers`；跨架构 (amd64↔arm64) 加 `-target clang`；打包 .app + 7z |
-| Linux | `CGO_ENABLED=1`，build tags: `desktop,production` | GTK3 + WebKit2GTK (pkg-config)；打包 tar.gz 含 .desktop + install.sh |
-| Windows | `CGO_ENABLED=1`，build tags: `desktop,production` | go-webview2 自带 WebView2Loader，无需额外系统库；打包 zip |
+| macOS | `CGO_ENABLED=1`，build tags: `desktop,production` | Wails WebView 依赖 cgo；链接 `-framework UniformTypeIdentifiers`；跨架构 (amd64↔arm64) 加 `-target clang`；最低部署版本 12.0；ad-hoc 签名；打包 .app + 7z (回退 zip) |
+| Linux | `CGO_ENABLED=1`，build tags: `desktop,production[,webkit2_41]` | GTK3 + WebKit2GTK (pkg-config)；脚本自动探测 4.0/4.1，使用 4.1 时追加 `webkit2_41` tag；打包 tar.gz 含 .desktop + install.sh |
+| Windows | `CGO_ENABLED=0`，build tags: `desktop,production` | go-webview2 通过 `syscall.NewLazyDLL` 动态加载 WebView2Loader.dll，无需 MinGW/gcc；打包 zip |
+| 桌面 App 编译约束 | — | 不可跨 OS 编译（Linux 需宿主 GTK），脚本在目标 OS ≠ 宿主 OS 时告警；仅 macOS 支持同 OS 跨架构交叉 |
 | 平台特定文件 | `//go:build` 标签 | 用于平台特定源文件 |
 | PATH 增强 | [EnrichPath()](../../src/appcommon/path.go#L25-L61) | 仅 macOS 生效，解决 GUI 应用 PATH 问题 |
 

@@ -1,5 +1,19 @@
 name: Release
 
+# =============================================================================
+# v* tag 触发，四路并行构建 (macOS x2 架构 / Linux / Windows)，汇总发布到 GitHub Release。
+#
+# 全部构建相关逻辑集中在 ./scripts/run_tools.sh build:
+#   - 系统依赖准备: Linux 自动 apt/dnf/pacman/zypper 安装 GTK3 + WebKit2GTK
+#     (4.0/4.1 自动探测并追加 webkit2_41 build tag)；macOS 校验 clang/SDK 并按需
+#     brew 安装 p7zip；Windows 无需 C 工具链 (CGO_ENABLED=0)
+#   - 编译参数: CGO_ENABLED / build tags / MACOSX_DEPLOYMENT_TARGET / clang -target
+#   - 三方工具下载 (install-bin.sh --bundled-only)、图标管线 (.icns/.ico)、
+#     Info.plist 生成、ad-hoc 签名、打包与归档工具回退
+# 本 workflow 只做 runner 引导 (checkout、Go 工具链与缓存) 与产物上传，
+# 不写任何依赖安装 / CGO / 打包细节，避免 CI 与本地行为漂移。
+# =============================================================================
+
 on:
   push:
     tags:
@@ -14,13 +28,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          # macOS 两个架构均在 arm64 runner 上编译，darwin/amd64 由脚本交叉编译
+          # (自动加 clang -target x86_64-apple-darwin)
+          - os: macos-latest
             platform: darwin
             arch: amd64
-          - os: macos-14
+          - os: macos-latest
             platform: darwin
             arch: arm64
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             platform: linux
             arch: amd64
           - os: windows-latest
@@ -29,105 +45,74 @@ jobs:
 
     name: Build (${{ matrix.platform }}/${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
-
-    env:
-      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
           cache: true
+          cache-dependency-path: go.sum
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            pkg-config \
-            libgtk-3-dev \
-            libwebkit2gtk-4.0-dev \
-            librsvg2-bin
-
-      - name: Install 7z (macOS)
-        if: matrix.platform == 'darwin'
-        run: brew install p7zip
-
-      - name: Install 7z (Windows)
-        if: matrix.platform == 'windows'
-        run: choco install 7zip -y
-
-      - name: Verify toolchain
-        shell: bash
-        run: go version
-
-      - name: Build & Package
-        shell: bash
-        run: |
-          chmod +x ./scripts/run_tools.sh ./scripts/install-bin.sh
-          ./scripts/run_tools.sh build --platform=${{ matrix.platform }}/${{ matrix.arch }}
+      # 依赖准备、编译、内嵌工具、打包全部由脚本完成，产物落在 release/
+      - name: Build & package via run_tools.sh
+        run: ./scripts/run_tools.sh build --platform=${{ matrix.platform }}/${{ matrix.arch }}
 
       - name: List artifacts
-        shell: bash
         run: ls -lh release/
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.platform }}-${{ matrix.arch }}
+          name: Formatter-${{ matrix.platform }}-${{ matrix.arch }}
+          # 只上传归档包 (macOS 的 release/Formatter.app 目录仅供本地调试，不入库)
           path: |
             release/*.7z
-            release/*.tar.gz
             release/*.zip
-          if-no-files-found: warn
+            release/*.tar.gz
+          if-no-files-found: error
 
   release:
-    name: Create Release
+    name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
-
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          pattern: build-*
           path: release
           merge-multiple: true
 
-      - name: List release artifacts
-        run: ls -lh release/
+      - name: List release assets
+        run: ls -lhR release/
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Formatter ${{ github.ref_name }}
           body: |
             ## Formatter ${{ github.ref_name }}
 
-            Auto-built desktop app for multiple platforms and architectures:
+            跨平台代码格式化 / 压缩 / 语法高亮工具，Go + Wails 桌面应用，同一二进制兼作 CLI。
+            构建逻辑由 `./scripts/run_tools.sh build` 统一实现。
 
             ### 产物列表
             | 平台 | 架构 | 文件 | 说明 |
             |------|------|------|------|
-            | macOS | amd64 (Intel) | `.7z` | .app 桌面应用 + CLI |
-            | macOS | arm64 (Apple Silicon) | `.7z` | .app 桌面应用 + CLI |
-            | Linux | amd64 | `.tar.gz` | 桌面应用 + CLI（含 install.sh 安装脚本） |
-            | Windows | amd64 | `.zip` | 桌面应用 + CLI |
+            | macOS | amd64 (Intel) | `Formatter-*-darwin-amd64.7z` | .app 桌面应用 + CLI |
+            | macOS | arm64 (Apple Silicon) | `Formatter-*-darwin-arm64.7z` | .app 桌面应用 + CLI |
+            | Linux | amd64 | `Formatter-*-linux-amd64.tar.gz` | 桌面应用 + CLI（含 install.sh） |
+            | Windows | amd64 | `Formatter-*-windows-amd64.zip` | 桌面应用 + CLI |
 
             ### 使用方式
-            - **macOS**: 解压 7z，双击 Formatter.app 启动桌面应用
-            - **Linux**: 解压 tar.gz，运行 `install.sh` 安装或直接执行 `Formatter/bin/formatter`
-            - **Windows**: 解压 zip，运行 Formatter.exe 启动桌面应用
+            - **macOS**: 解压后双击 `Formatter.app`（支持 macOS 12 及以上）。未做 Apple 公证，首次打开如被 Gatekeeper 拦截，请右键应用选“打开”确认一次。
+            - **Linux**: 解压后运行 `install.sh` 安装，或直接执行 `Formatter/bin/formatter`。需预装 `libgtk-3-0` 与 `libwebkit2gtk-4.1-0`（Ubuntu 22.04+/Debian 12+ 官方源均提供）。
+            - **Windows**: 解压后运行 `Formatter.exe`（需系统预装 WebView2 Runtime，Win 10 1803+ 默认自带）。
           files: |
             release/*.7z
-            release/*.tar.gz
             release/*.zip
-          fail_on_unmatched_files: false
+            release/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

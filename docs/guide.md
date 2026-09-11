@@ -336,13 +336,18 @@ go vet ./tests/ ./src/...
 
 ## 6. 构建系统
 
+三平台构建逻辑全部集中在 `scripts/run_tools.sh`，本地与 CI 共用同一入口。
+`build` 流程: `step_prepare_deps` (系统依赖) → `setup_build_env` (CGO/tags) →
+`go mod download` → `build_go_binary` → `download_bundled_tools` + `embed_tools` →
+`package_macos` / `package_linux` / `package_windows`。
+
 ### 6.1 run_tools.sh 命令表
 
 交互式菜单 + CLI 命令，支持数字/首字母匹配:
 
 | 命令 | 简写 | 说明 |
 |------|------|------|
-| `build` | `b` | 构建 App (二进制 + .app) |
+| `build` | `b` | 构建当前平台 App (依赖准备 → 编译 → 内嵌工具 → 打包) |
 | `install-bin` | `i` | 下载三方二进制工具 |
 | `test` | `t` | 运行单元测试 |
 | `clean` | `c` | 清理构建产物 |
@@ -350,25 +355,38 @@ go vet ./tests/ ./src/...
 | `server` | `s` | 编译并运行 Web Server |
 | `exit` | `q` | 退出 |
 
-选项: `--platform=OS/ARCH` `--tool=<name>` `--all` `--addr=<addr>` `--no-open` `--browser`
+选项: `--platform=OS/ARCH` `--skip-deps` `--tool=<name>` `--all` `--addr=<addr>` `--no-open` `--browser`
 
 ### 6.2 构建约束
 
-| 平台 | CGO | Build Tags | 备注 |
-|------|-----|------------|------|
-| macOS | `CGO_ENABLED=1` | `desktop,production` | 链接 `-framework UniformTypeIdentifiers`; 跨架构加 `-target clang`; 打包 .app |
-| Linux | `CGO_ENABLED=0` | 无 | 纯 Go 构建，CLI + Web UI |
-| Windows | `CGO_ENABLED=0` | 无 | 纯 Go 构建，CLI + Web UI |
+| 平台 | CGO | Build Tags | 系统依赖 | 产物 |
+|------|-----|------------|----------|------|
+| macOS | `CGO_ENABLED=1` | `desktop,production` | clang + SDK (脚本校验)，缺 7z 时 `brew install p7zip` | `.app` → `Formatter-<ver>-darwin-<arch>.7z` (无 7z 回退 `.zip`) |
+| Linux | `CGO_ENABLED=1` | `desktop,production[,webkit2_41]` | pkg-config + GTK3 + WebKit2GTK (apt/dnf/pacman/zypper 自动安装) | `Formatter-<ver>-linux-amd64.tar.gz` |
+| Windows | `CGO_ENABLED=0` | `desktop,production` | 无 (go-webview2 动态加载 WebView2Loader.dll) | `Formatter-<ver>-windows-amd64.zip` |
 
-- **跨编译**: 跳过图标生成
+- **桌面 App 不可跨 OS 编译**: 目标 OS ≠ 宿主 OS 时 `step_prepare_deps` 跳过并告警；仅支持同 OS 跨架构 (darwin amd64↔arm64，自动加 `clang -target`)
+- **WebKit 版本自适应**: `resolve_webkit_variant` 优先 `webkit2gtk-4.1` (额外 `webkit2_41` build tag)，回退 `4.0`，因此 Ubuntu 22.04/24.04 均可构建
+- **macOS 签名**: 二进制与 .app 整包均做 ad-hoc 签名 (`codesign -s -`)，未做公证
+- **图标与归档回退**: PNG `sips → ImageMagick → rsvg-convert → cp`；`.ico` ImageMagick → PowerShell System.Drawing；归档 `7z → zip → PowerShell Compress-Archive`；图标生成是纯图像处理，跨架构编译时照常执行
+- **工具内嵌**: `download_bundled_tools` 无条件调用 `install-bin.sh --bundled-only --yes` (源码树只提交了 preset 包装脚本，不能以“目录非空”判断已下载)
 - **二进制 strip**: 下载后自动 strip 减小体积 (跳过 Windows/JAR/脚本); strip 后用 verify_cmd 验证，失败则还原
 
 ### 6.3 install-bin.sh 约束
 
+- `--bundled-only`: 只处理 `source=download` 的工具 (需内嵌进安装包)，跳过 `source=install` (如 rubocop 的 `gem install`) 与运行时环境检测，避免污染/依赖 CI runner
 - 支持代理: `USE_GH_PROXY` 启用, `GH_PROXY_URL` 自定义地址
 - 下载超时: `--max-time 600`
 - 代理重试: GitHub 直连失败时自动切换代理
 - 失败清理: 下载失败时清理残留文件
+
+### 6.4 CI (.github/workflows/release.yml)
+
+`v*` tag 触发，矩阵 `macos-latest×2 (amd64/arm64) + ubuntu-latest + windows-latest`。
+workflow 仅包含: `checkout` → `setup-go (go-version-file: go.mod)` →
+`./scripts/run_tools.sh build --platform=...` → `upload-artifact release/*`，
+最后由 `release` job 汇总发到 GitHub Release。**禁止在 workflow 里写 apt/brew/choco
+等依赖安装或打包脚本**，需要改动时一律落到 `run_tools.sh`，避免 CI 与本地漂移。
 
 ---
 
@@ -401,7 +419,7 @@ go vet ./tests/ ./src/...
 | 添加命令占位符 | [src/config/cmd_args.go](../src/config/cmd_args.go) | `buildTemplateVars()` |
 | 修改语言检测 | [data/config.json](../data/config.json) | `detection` 字段 |
 | 添加测试用例 | [tests/testdata/test_cases.json](../tests/testdata/test_cases.json) | languages / edge_cases |
-| 修改构建流程 | [scripts/run_tools.sh](../scripts/run_tools.sh) | step_* 函数 |
+| 修改构建流程 | [scripts/run_tools.sh](../scripts/run_tools.sh) | step_* 函数 (依赖/编译/打包) |
 | 修改工具下载 | [scripts/install-bin.sh](../scripts/install-bin.sh) | install_binary_tool 函数 |
 
 ---

@@ -18,6 +18,11 @@ set -euo pipefail
 #   ./install-bin.sh --platform=darwin/arm64  # 指定目标平台
 #   ./install-bin.sh --interactive            # 交互式选择
 #   ./install-bin.sh --yes                    # 非交互模式，所有询问自动确认
+#   ./install-bin.sh --bundled-only --yes     # 仅获取需随 App 分发的工具 (构建用)
+#
+# --bundled-only 用于构建流程: 只处理 source=download 的工具 (需内嵌进安装包)，
+# 跳过 source=install (如 rubocop，需 gem install 等宿主包管理器) 与运行时环境检测，
+# 保证 CI 上不会因为缺少 ruby/gem 而失败或污染 runner 环境。
 #
 # 安装目录: <项目根>/data/bin/
 # =============================================================================
@@ -72,6 +77,7 @@ INSTALL_ALL=false
 INTERACTIVE=false
 AUTO_YES=false
 CHECK_ONLY=false
+BUNDLED_ONLY=false          # 仅安装需内嵌的工具 (跳过 source=install 与运行时检测)
 SELECTED_TOOLS=()
 FAILED_TOOLS=()
 SKIPPED_TOOLS=()
@@ -314,6 +320,26 @@ lookup_url() {
     fi
 
     return 1
+}
+
+# is_cross_platform_tool 判断工具是否为跨平台工具 (urls 仅有 "*" 通配符，无平台特定 URL)。
+# 跨平台工具 (如 google-java-format.jar) 安装到 BIN_ROOT 而非 BIN_DIR，
+# 打包时由 embed_tools() 统一处理，避免同一文件重复放入各平台目录。
+is_cross_platform_tool() {
+    local idx="$1" version="$2"
+    local platform_key="${TARGET_GOOS}/${TARGET_GOARCH}"
+    local wildcard_key="${TARGET_GOOS}/*"
+    local url
+    # 存在精确平台匹配 → 平台特定工具
+    url="$("$JQ_BIN" -r --arg k "$platform_key" \
+        ".binary.tools[$idx].urls[\$k] // empty" "$CONFIG_FILE")"
+    [[ -n "$url" ]] && return 1
+    # 存在 os/* 通配符 → 平台特定工具 (同 OS 不同架构的通用二进制)
+    url="$("$JQ_BIN" -r --arg k "$wildcard_key" \
+        ".binary.tools[$idx].urls[\$k] // empty" "$CONFIG_FILE")"
+    [[ -n "$url" ]] && return 1
+    # 仅 "*" 通配符 → 跨平台工具
+    return 0
 }
 
 # =============================================================================
@@ -726,14 +752,20 @@ install_binary_tool() {
     fi
 
     # 安装
-    mkdir -p "$BIN_DIR"
+    # 跨平台工具 (urls 仅 "*" 通配符) 安装到 BIN_ROOT，平台特定工具安装到 BIN_DIR
+    local target_dir="$BIN_DIR"
+    if is_cross_platform_tool "$idx" "$version"; then
+        target_dir="$BIN_ROOT"
+        print_info "  跨平台工具，安装到 bin/ (非平台目录)"
+    fi
+    mkdir -p "$target_dir"
     if [[ "$archive_type" == "raw" ]]; then
         # raw 二进制: 直接复制
-        local dest="${BIN_DIR}/${executable}${ext_suffix}"
+        local dest="${target_dir}/${executable}${ext_suffix}"
         cp "$archive" "$dest"
         chmod +x "$dest" 2>/dev/null || true
         strip_binary "$dest" "$verify_cmd"
-        ok_tool "$name" "已安装 -> bin/${executable}${ext_suffix}"
+        ok_tool "$name" "已安装 -> ${dest#$BIN_ROOT/}"
     else
         # 解压归档
         if ! extract_archive "$archive" "$archive_type" "$extract_dir"; then
@@ -755,11 +787,11 @@ install_binary_tool() {
             return 0
         fi
 
-        local dest="${BIN_DIR}/${executable}${ext_suffix}"
+        local dest="${target_dir}/${executable}${ext_suffix}"
         cp "$exe_path" "$dest"
         chmod +x "$dest" 2>/dev/null || true
         strip_binary "$dest" "$verify_cmd"
-        ok_tool "$name" "已安装 -> bin/${executable}${ext_suffix}"
+        ok_tool "$name" "已安装 -> ${dest#$BIN_ROOT/}"
         rm -rf "$extract_dir"
     fi
 
@@ -1154,6 +1186,8 @@ main() {
                 AUTO_YES=true ;;
             --check)
                 CHECK_ONLY=true ;;
+            --bundled-only)
+                BUNDLED_ONLY=true ;;
             --proxy)
                 USE_GH_PROXY=true ;;
             --no-proxy)
@@ -1169,6 +1203,7 @@ ${BOLD}选项:${NC}
   --interactive, -i    交互式选择工具
   --yes, -y            非交互模式，所有询问自动确认
   --check              仅检查工具安装状态，不下载安装
+  --bundled-only       仅安装需内嵌进安装包的工具 (跳过 source=install 与运行时检测)
   --proxy              使用 GitHub 代理 (https://gh-proxy.com) 加速下载
   --no-proxy           不使用代理 (默认)
   -h, --help           显示帮助
@@ -1184,6 +1219,7 @@ ${BOLD}示例:${NC}
   $0 --tool=shfmt,biome        # 安装 shfmt 和 biome
   $0 --all                     # 含运行时检测
   $0 --check                   # 仅检查工具状态，不下载
+  $0 --bundled-only --yes      # 构建模式: 仅下载需内嵌的工具
   $0 --proxy                   # 使用代理加速下载
   USE_GH_PROXY=true $0         # 通过环境变量启用代理
   $0 --platform=linux/amd64    # 指定 Linux 平台
@@ -1240,7 +1276,9 @@ HELP
     if [[ ${#SELECTED_TOOLS[@]} -gt 0 ]]; then
         printf "  %b筛选工具:%b %s\n" "$CYAN" "$NC" "${SELECTED_TOOLS[*]}"
     fi
-    if $CHECK_ONLY; then
+    if $BUNDLED_ONLY; then
+        printf "  %b模式:%b 仅内嵌工具 (--bundled-only)\n" "$CYAN" "$NC"
+    elif $CHECK_ONLY; then
         printf "  %b模式:%b 仅检查\n" "$CYAN" "$NC"
     fi
     echo ""
@@ -1281,15 +1319,21 @@ HELP
 
     # =========================================================================
     # 第三步: 命令安装工具 (source=install, 如 rubocop)
+    #   --bundled-only: 跳过。这类工具依赖宿主包管理器 (gem/npm/pip)，既不进安装包，
+    #   也不应在 CI 上安装
     # =========================================================================
-    print_banner "命令安装工具"
-    for ((i=0; i<tool_count; i++)); do
-        local source
-        source="$(jq_get ".binary.tools[$i].source")"
-        if [[ "$source" == "install" ]]; then
-            install_binary_tool "$i"
-        fi
-    done
+    if $BUNDLED_ONLY; then
+        print_banner "命令安装工具 (已跳过: --bundled-only)"
+    else
+        print_banner "命令安装工具"
+        for ((i=0; i<tool_count; i++)); do
+            local source
+            source="$(jq_get ".binary.tools[$i].source")"
+            if [[ "$source" == "install" ]]; then
+                install_binary_tool "$i"
+            fi
+        done
+    fi
 
     # =========================================================================
     # 第四步: 安装结果汇总
@@ -1297,9 +1341,11 @@ HELP
     print_install_result
 
     # =========================================================================
-    # 第五步: 运行时环境检测 (--all 或交互模式)
+    # 第五步: 运行时环境检测 (--all 或交互模式时执行)
     # =========================================================================
-    run_runtime_check
+    if ! $BUNDLED_ONLY; then
+        run_runtime_check
+    fi
 
     # =========================================================================
     # 最终汇总
