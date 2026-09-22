@@ -6,10 +6,10 @@ name: Release
 # 全部构建相关逻辑集中在 ./scripts/run_tools.sh build:
 #   - 系统依赖准备: Linux 自动 apt/dnf/pacman/zypper 安装 GTK3 + WebKit2GTK
 #     (4.0/4.1 自动探测并追加 webkit2_41 build tag)；macOS 校验 clang/SDK 并按需
-#     brew 安装 p7zip；Windows 无需 C 工具链 (CGO_ENABLED=0)
+#     brew 安装 p7zip (DMG 回退归档用)；Windows 无需 C 工具链 (CGO_ENABLED=0)
 #   - 编译参数: CGO_ENABLED / build tags / MACOSX_DEPLOYMENT_TARGET / clang -target
 #   - 三方工具下载 (install-bin.sh --bundled-only)、图标管线 (.icns/.ico)、
-#     Info.plist 生成、ad-hoc 签名、打包与归档工具回退
+#     Info.plist 生成、ad-hoc 签名、DMG 拖拽安装打包 (回退 7z/zip) 与归档工具回退
 # 本 workflow 只做 runner 引导 (checkout、Go 工具链与缓存) 与产物上传，
 # 不写任何依赖安装 / CGO / 打包细节，避免 CI 与本地行为漂移。
 # =============================================================================
@@ -70,6 +70,7 @@ jobs:
           name: Formatter-${{ matrix.platform }}-${{ matrix.arch }}
           # 只上传归档包 (macOS 的 release/Formatter.app 目录仅供本地调试，不入库)
           path: |
+            release/*.dmg
             release/*.7z
             release/*.zip
             release/*.tar.gz
@@ -101,16 +102,17 @@ jobs:
             ### 产物列表
             | 平台 | 架构 | 文件 | 说明 |
             |------|------|------|------|
-            | macOS | amd64 (Intel) | `Formatter-*-darwin-amd64.7z` | .app 桌面应用 + CLI |
-            | macOS | arm64 (Apple Silicon) | `Formatter-*-darwin-arm64.7z` | .app 桌面应用 + CLI |
+            | macOS | amd64 (Intel) | `Formatter-*-darwin-amd64.dmg` | 拖拽安装桌面应用 + CLI |
+            | macOS | arm64 (Apple Silicon) | `Formatter-*-darwin-arm64.dmg` | 拖拽安装桌面应用 + CLI |
             | Linux | amd64 | `Formatter-*-linux-amd64.tar.gz` | 桌面应用 + CLI（含 install.sh） |
             | Windows | amd64 | `Formatter-*-windows-amd64.zip` | 桌面应用 + CLI |
 
             ### 使用方式
-            - **macOS**: 解压后双击 `Formatter.app`（支持 macOS 12 及以上）。未做 Apple 公证，首次打开如被 Gatekeeper 拦截，请右键应用选“打开”确认一次。
+            - **macOS**: 双击挂载 `.dmg`，将 `Formatter.app` 拖入 `Applications` 即完成安装（支持 macOS 12 及以上）。未做 Apple 公证，首次打开如被 Gatekeeper 拦截，请右键应用选“打开”确认一次。
             - **Linux**: 解压后运行 `install.sh` 安装，或直接执行 `Formatter/bin/formatter`。需预装 `libgtk-3-0` 与 `libwebkit2gtk-4.1-0`（Ubuntu 22.04+/Debian 12+ 官方源均提供）。
             - **Windows**: 解压后运行 `Formatter.exe`（需系统预装 WebView2 Runtime，Win 10 1803+ 默认自带）。
           files: |
+            release/*.dmg
             release/*.7z
             release/*.zip
             release/*.tar.gz

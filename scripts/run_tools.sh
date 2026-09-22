@@ -9,7 +9,8 @@ set -euo pipefail
 # (checkout、Go 工具链) 与产物上传，不写任何依赖安装或打包细节，避免 CI 与本地漂移。
 #
 # 三平台 App 打包 (CI 中每个 job 在对应 OS 的 runner 上构建，脚本按宿主 OS 自动准备依赖):
-#   darwin/amd64|arm64 → .app bundle (icns + 内嵌工具) + ad-hoc 签名 → .7z (无 7z 时回退 .zip)
+#   darwin/amd64|arm64 → .app bundle (icns + 内嵌工具) + ad-hoc 签名 → .dmg (拖拽安装，
+#                        staging + Applications 快捷方式；hdiutil 不可用时回退 .7z/.zip)
 #   linux/amd64        → tar.gz (bin/ + .desktop + 图标 + tools/ + install.sh)
 #   windows/amd64      → zip (Formatter.exe + config.json + icon.ico + tools/)
 # =============================================================================
@@ -867,10 +868,45 @@ package_macos() {
     cp -R "$app_dir" "$RELEASE_DIR/"
     print_ok "已复制到 release/: ${APP_NAME}.app"
 
-    archive_macos "$app_dir" || return 1
+    # DMG 为首选分发产物 (拖拽安装)；hdiutil 不可用或生成失败时回退 7z/zip
+    build_dmg_macos "$app_dir" || archive_macos "$app_dir" || return 1
     print_usage_hint macos
 }
 
+# =============================================================================
+# macOS DMG 打包 (拖拽安装): 卷内包含 App + Applications 快捷方式，用户将 App
+# 拖到 Applications 即完成安装。hdiutil 会把符号链接写为 Finder 别名，一次直出
+# UDZO，全程不 attach、不做 Finder 定制，打包过程零窗口弹出 (easy_image 验证)
+# =============================================================================
+build_dmg_macos() {
+    local app_dir="$1"
+    have hdiutil || { print_warn "hdiutil 不可用，回退 7z/zip 打包"; return 1; }
+
+    local dmg_path="${RELEASE_DIR}/$(artifact_base).dmg"
+    rm -f "$dmg_path"
+
+    # staging 目录: App + Applications 符号链接 (拖到此处即安装)
+    local staging
+    staging="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}_dmg.XXXXXX")" || {
+        print_warn "mktemp 失败，回退 7z/zip 打包"; return 1; }
+
+    print_step "打包 DMG (拖拽安装): $(basename "$dmg_path") ..."
+    if cp -R "$app_dir" "${staging}/${APP_NAME}.app" && \
+        ln -s /Applications "${staging}/Applications" && \
+        hdiutil create -volname "$APP_NAME" -srcfolder "$staging" -ov -format UDZO "$dmg_path" \
+            >/dev/null 2>&1 && [[ -s "$dmg_path" ]]; then
+        rm -rf "$staging"
+        print_ok "DMG 打包成功: $(basename "$dmg_path") ($(du -h "$dmg_path" | cut -f1))"
+        return 0
+    fi
+
+    rm -rf "$staging"
+    rm -f "$dmg_path"
+    print_warn "DMG 生成失败，回退 7z/zip 打包"
+    return 1
+}
+
+# 归档回退: 7z (最大压缩) → zip (ditto / 7z / PowerShell)，仅在 DMG 生成失败时使用
 archive_macos() {
     local app_dir="$1"
     local base archive out
@@ -1027,6 +1063,8 @@ print_usage_hint() {
     printf "\n  %b使用方式:%b\n" "$CYAN" "$NC"
     case "$platform" in
         macos)
+            printf "    %b拖拽安装:%b 双击挂载 %s/$(artifact_base).dmg，将 %s.app 拖入 Applications\n" \
+                "$BOLD" "$NC" "$RELEASE_DIR" "$APP_NAME"
             printf "    %b桌面应用:%b open %s/%s.app\n" "$BOLD" "$NC" "$RELEASE_DIR" "$APP_NAME"
             printf "    %bCLI 调用:%b %s/${APP_NAME} format main.go\n" "$BOLD" "$NC" \
                 "${RELEASE_DIR}/${APP_NAME}.app/Contents/MacOS"
@@ -1165,7 +1203,8 @@ ${BOLD}说明:${NC}
   - 菜单支持数字 (1-6) 或英文首字母 (b/i/t/c/r/s) 匹配操作
   - 所有构建逻辑 (依赖安装 / CGO / 图标 / 打包) 均在本脚本实现，
     .github/workflows/release.yml 仅做 runner 引导与产物上传
-  - macOS: .app bundle (icns + 内嵌工具) + ad-hoc 签名 → .7z (无 7z 时回退 .zip)
+  - macOS: .app bundle (icns + 内嵌工具) + ad-hoc 签名 → .dmg (卷内 App + Applications
+    快捷方式，拖拽安装；hdiutil 不可用时回退 .7z/.zip)
     CGO_ENABLED=1 + -tags desktop,production；跨架构自动加 clang -target
   - Linux: tar.gz (bin/ + .desktop + 图标 + tools/ + install.sh)
     自动 apt/dnf/pacman/zypper 安装 GTK3 + WebKit2GTK (4.0/4.1 自动选择 build tag)
