@@ -47,11 +47,14 @@ func NewRootCmd() *cobra.Command {
   - Compressing/minifying code
   - Syntax highlighting for HTML/terminal output
 
-Examples:
-  formatter format main.py
-  formatter run app.js --style monokai -o app.html
-  formatter compress styles.css
-  formatter langs`,
+不带任何子命令运行时将启动桌面 GUI；指定子命令则以 CLI 模式运行。
+运行 'formatter help <命令>' 或 '<命令> --help' 查看某个子命令的详细说明。`,
+		Example: `  formatter format main.py            # 格式化文件
+  formatter run app.js --style monokai -o app.html   # 格式化+高亮输出 HTML
+  formatter compress styles.css       # 压缩/最小化
+  formatter highlight -l go -o go.html < main.go     # 从 stdin 高亮
+  formatter langs                     # 列出支持的语言
+  formatter binary install            # 安装外部二进制工具`,
 		Version:      appcommon.Version,
 		SilenceUsage: true,
 	}
@@ -150,7 +153,14 @@ func newFormatCmd(opts *GlobalOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "format [file]",
 		Short: "Format code only",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `仅执行格式化。
+输入来源优先级: 位置参数 [file] > --input/-i > stdin; 未指定 -l/--lang 时按扩展名/shebang/内容自动检测。
+文件输入时可自动检测语言; 使用 stdin/剪贴板时建议显式指定 -l/--lang。`,
+		Example: `  formatter format main.go                 # 原地格式化并输出到 stdout
+  formatter format app.js --tab-width 4    # 使用 4 空格缩进
+  formatter format - --lang python < a.py  # 从 stdin 读取, 显式指定语言
+  formatter format config.json -o out.json # 输出写入文件`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -173,7 +183,12 @@ func newCompressCmd(opts *GlobalOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "compress [file]",
 		Short: "Compress/minify code only",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `仅执行压缩/最小化。
+仅部分语言支持压缩 (css/html/javascript/json/sql/xml)，不支持的语言会静默跳过 (输出保持不变)。`,
+		Example: `  formatter compress styles.css              # 压缩 CSS
+  formatter compress app.js -o app.min.js    # 压缩 JS 并写入文件
+  formatter compress --lang json -i data.json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -194,7 +209,12 @@ func newHighlightCmd(opts *GlobalOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "highlight [file]",
 		Short: "Highlight code only",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `仅执行语法高亮，输出为 HTML 片段 (内联样式)。
+可用 --style 选择主题、--font-size 设字体、--line-numbers 显示行号、--compat-html 适配 OneNote/Quiver。`,
+		Example: `  formatter highlight main.go --style monokai -o main.html
+  formatter highlight app.js --line-numbers --font-size 16 -o app.html
+  formatter highlight -l sql -i query.sql --compat-html -o out.html  # 兼容输出`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -225,7 +245,13 @@ func newRunCmd(opts *GlobalOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [file]",
 		Short: "Run format + compress + highlight pipeline",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `运行完整流水线。默认执行「格式化 + 高亮」(美化&高亮)，不启用压缩。
+可用 --no-format / --no-highlight 跳过对应步骤; 如需压缩请显式传入 --no-compress=false。`,
+		Example: `  formatter run main.go --style idea -o main.html  # 格式化+高亮输出 HTML
+  formatter run app.js --no-highlight              # 仅格式化
+  formatter run data.json --no-compress=false      # 启用压缩步骤
+  formatter run -l java -i Service.java -o out.html`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -258,6 +284,15 @@ func newBinaryCmd(opts *GlobalOptions) *cobra.Command {
 	binaryCmd := &cobra.Command{
 		Use:   "binary",
 		Short: "Manage external binary tools",
+		Long: `管理外部二进制格式化工具 (如 ruff / shfmt / stylua / sleek 等)。
+依赖外部工具的语言需先安装对应二进制; 原生 (native) 后端无需安装。`,
+		Example: `  formatter binary install               # 安装全部工具
+  formatter binary install --tool ruff   # 仅安装指定工具 (逗号分隔多个)
+  formatter binary install --lang python # 安装某语言所需工具
+  formatter binary check                 # 检查工具状态
+  formatter binary list                  # 列出已安装工具
+  formatter binary update                # 更新到配置版本
+  formatter binary remove --tool ruff    # 卸载指定工具`,
 	}
 
 	var installLang string
@@ -267,6 +302,12 @@ func newBinaryCmd(opts *GlobalOptions) *cobra.Command {
 	binaryInstallCmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install/download binary tools",
+		Long: `安装/下载外部二进制工具。
+默认安装全部工具; 可用 --lang / --tool 缩小范围; --embedded-only 仅安装随 App 打包的独立二进制。`,
+		Example: `  formatter binary install
+  formatter binary install --tool ruff,shfmt
+  formatter binary install --lang python
+  formatter binary install --embedded-only`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -298,8 +339,10 @@ func newBinaryCmd(opts *GlobalOptions) *cobra.Command {
 	binaryInstallCmd.Flags().BoolVar(&installEmbeddedOnly, "embedded-only", false, "Only install tools marked as embedded (standalone binaries for App Resources/bin)")
 
 	binaryCheckCmd := &cobra.Command{
-		Use:   "check",
-		Short: "Check binary tool status",
+		Use:     "check",
+		Short:   "Check binary tool status",
+		Long:    `检查已安装二进制工具的状态与路径。`,
+		Example: `  formatter binary check`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -355,8 +398,10 @@ func newBinaryCmd(opts *GlobalOptions) *cobra.Command {
 
 	var removeTool string
 	binaryRemoveCmd := &cobra.Command{
-		Use:   "remove",
-		Short: "Remove a binary tool",
+		Use:     "remove",
+		Short:   "Remove a binary tool",
+		Long:    `卸载指定的二进制工具 (必须提供 --tool)。`,
+		Example: `  formatter binary remove --tool ruff`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -375,8 +420,10 @@ func newBinaryCmd(opts *GlobalOptions) *cobra.Command {
 	binaryRemoveCmd.Flags().StringVar(&removeTool, "tool", "", "Tool name to remove")
 
 	binaryUpdateCmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update binary tools to configured versions",
+		Use:     "update",
+		Short:   "Update binary tools to configured versions",
+		Long:    `将已安装的二进制工具更新到 config.json 中配置的版本。`,
+		Example: `  formatter binary update`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -406,8 +453,10 @@ func newBinaryCmd(opts *GlobalOptions) *cobra.Command {
 
 func newLangsCmd(opts *GlobalOptions) *cobra.Command {
 	return &cobra.Command{
-		Use:   "langs",
-		Short: "List supported languages",
+		Use:     "langs",
+		Short:   "List supported languages",
+		Long:    `列出所有支持的语言及其格式化/压缩/高亮后端 ([fmt]/[cmp]/[hl])。`,
+		Example: `  formatter langs`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core, err := buildCore(opts)
 			if err != nil {
@@ -437,6 +486,7 @@ func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
+		Long:  `打印版本号 (与 --version 等效)。`,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(os.Stdout, "formatter v%s\n", appcommon.Version)
 		},
