@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/formatter/formatter/src/appcommon"
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/appcommon"
+	"formatter/src/config"
 )
 
 // testdataFS 嵌入 testdata 目录。Go 测试缓存仅跟踪 Go 源文件变化，
@@ -38,8 +38,8 @@ func TestMain(m *testing.M) {
 	}
 	config.SetDefaultConfig(configData)
 
-	// 读取版本号并注入 (与 main.go 一致，源自 data/version.txt)
-	if versionData, err := os.ReadFile(filepath.Join(projectRoot, "data", "version.txt")); err == nil {
+	// 读取版本号并注入 (与生产构建的 ldflags 注入等效，数据源: 根目录 VERSION 文件)
+	if versionData, err := os.ReadFile(filepath.Join(projectRoot, "VERSION")); err == nil {
 		appcommon.SetVersion(string(versionData))
 	}
 

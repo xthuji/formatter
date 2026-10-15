@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/config"
 )
 
 // BuildToolCmd 构建工具的完整执行命令 (包含运行时前缀和参数)。

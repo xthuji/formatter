@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/config"
 )
 
 // RuntimeDefs 返回运行时定义列表，若配置为空则回退到硬编码默认集。

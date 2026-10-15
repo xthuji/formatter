@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/formatter/formatter/src/compressor"
-	"github.com/formatter/formatter/src/config"
-	"github.com/formatter/formatter/src/formatter"
-	"github.com/formatter/formatter/src/highlighter"
-	iocore "github.com/formatter/formatter/src/io"
-	"github.com/formatter/formatter/src/registry"
+	"formatter/src/compressor"
+	"formatter/src/config"
+	"formatter/src/formatter"
+	"formatter/src/highlighter"
+	iocore "formatter/src/io"
+	"formatter/src/registry"
 )
 
 type Engine struct {

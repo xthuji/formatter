@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	appcommon "github.com/formatter/formatter/src/appcommon"
-	iocore "github.com/formatter/formatter/src/io"
+	appcommon "formatter/src/appcommon"
+	iocore "formatter/src/io"
 )
 
 // ---- BufferReader ----

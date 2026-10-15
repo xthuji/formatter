@@ -7,7 +7,7 @@ import (
 	gosqlx "github.com/ajitpratap0/GoSQLX/pkg/gosqlx"
 	sqlfmt "github.com/ajitpratap0/GoSQLX/pkg/formatter"
 	astfmt "github.com/ajitpratap0/GoSQLX/pkg/sql/ast"
-	"github.com/formatter/formatter/src/formatter"
+	"formatter/src/formatter"
 )
 
 // SQLFormatter 使用 GoSQLX (github.com/ajitpratap0/GoSQLX) 实现 SQL 格式化。

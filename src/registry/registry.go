@@ -4,9 +4,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/formatter/formatter/src/compressor"
-	"github.com/formatter/formatter/src/formatter"
-	"github.com/formatter/formatter/src/highlighter"
+	"formatter/src/compressor"
+	"formatter/src/formatter"
+	"formatter/src/highlighter"
 )
 
 type Registry struct {

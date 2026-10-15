@@ -68,7 +68,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Formatter-${{ matrix.platform }}-${{ matrix.arch }}
-          # 只上传归档包 (macOS 的 release/Formatter.app 目录仅供本地调试，不入库)
+          # 只上传归档包 (macOS 的 .app 目录仅留在 build/ 供本地调试，不入库)
           path: |
             release/*.dmg
             release/*.7z

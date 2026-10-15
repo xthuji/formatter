@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/formatter/formatter/src/binary"
-	"github.com/formatter/formatter/src/config"
-	"github.com/formatter/formatter/src/formatter"
+	"formatter/src/binary"
+	"formatter/src/config"
+	"formatter/src/formatter"
 )
 
 // CmdAdapter 是配置驱动的通用外部二进制格式化适配器。

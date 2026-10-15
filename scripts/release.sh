@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Project Repository - 发布工具
+# =============================================================================
+# 读取根目录 VERSION 创建 git tag v{version}，推送到 GitHub 远程，
+# 触发 .github/workflows/release.yml 在 macOS / Linux / Windows 三平台
+# 自动构建并发布到 GitHub Release。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-VERSION_FILE="${ROOT_DIR}/data/version.txt"
+VERSION_FILE="${ROOT_DIR}/VERSION"
 REMOTE_NAME="${RELEASE_REMOTE:-backupstream}"
 
 RED='\033[0;31m'
@@ -23,11 +29,11 @@ usage() {
 ${BOLD}用法:${NC} $0 [--version=<ver>] [--remote=<name>] [--dry-run]
 
 ${BOLD}说明:${NC}
-  读取 data/version.txt 创建 git tag v{version}，推送到 GitHub 远程，
+  读取 VERSION 创建 git tag v{version}，推送到 GitHub 远程，
   触发 .github/workflows/release.yml 自动构建并发布 7z 归档。
 
 ${BOLD}选项:${NC}
-  --version=<ver>  指定版本号 (覆盖 data/version.txt)
+  --version=<ver>  指定版本号 (覆盖 VERSION 文件)
   --remote=<name>  推送的远程名称 (默认: backupstream)
   --dry-run        仅打印命令，不实际执行
   -h, --help       显示此帮助
@@ -36,7 +42,7 @@ ${BOLD}环境变量:${NC}
   RELEASE_REMOTE   远程名称 (优先级低于 --remote)
 
 ${BOLD}示例:${NC}
-  $0                       # 使用 version.txt 版本号
+  $0                       # 使用 VERSION 版本号
   $0 --version=1.1.0       # 强制指定版本
   $0 --version=1.1.0 --dry-run
 EOF
@@ -58,11 +64,13 @@ done
 
 cd "$ROOT_DIR"
 
+git rev-parse --is-inside-work-tree &>/dev/null || die "当前目录不是 Git 仓库: $ROOT_DIR"
+
 if [[ -n "$CUSTOM_VERSION" ]]; then
     APP_VERSION="$CUSTOM_VERSION"
 else
     [[ -f "$VERSION_FILE" ]] || die "未找到版本文件: $VERSION_FILE"
-    APP_VERSION="$(cat "$VERSION_FILE" | tr -d '[:space:]')"
+    APP_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
 fi
 
 [[ -z "$APP_VERSION" ]] && die "版本号为空"
@@ -72,21 +80,36 @@ fi
 TAG_NAME="v${APP_VERSION}"
 
 echo ""
-echo -e "${CYAN}${BOLD}═══ Formatter Release ═══${NC}"
+echo -e "${CYAN}${BOLD}═══ Project Release ═══${NC}"
 echo -e "  版本: ${BOLD}${APP_VERSION}${NC}"
 echo -e "  Tag:  ${BOLD}${TAG_NAME}${NC}"
 echo -e "  远程: ${BOLD}${REMOTE_NAME}${NC}"
 echo -e "  模式: $($DRY_RUN && echo -e "${YELLOW}DRY-RUN${NC}" || echo -e "${GREEN}实际执行${NC}")"
 echo ""
 
+# 打印并执行命令；dry-run 时只打印。直接传参数数组，绝不 eval。
 run() {
+    local display="" arg
+    for arg in "$@"; do
+        if [[ "$arg" == *[[:space:]]* ]]; then
+            display+=" '${arg}'"
+        else
+            display+=" ${arg}"
+        fi
+    done
+    display="${display# }"
     if $DRY_RUN; then
-        echo -e "  ${YELLOW}[dry-run]${NC} $*"
+        echo -e "  ${YELLOW}[dry-run]${NC} ${display}"
     else
-        info "$*"
-        eval "$@"
+        info "${display}"
+        "$@"
     fi
 }
+
+# 工作区必须干净：避免发布未提交代码（源头一致性）；--dry-run 仅预览不受此限。
+if ! $DRY_RUN && ! git diff --quiet HEAD; then
+    die "存在未提交的代码变更，请先提交（或使用 scripts/git_commit_release.sh 一步完成）"
+fi
 
 # 检查远程是否存在
 if git remote get-url "$REMOTE_NAME" &>/dev/null; then
@@ -105,10 +128,10 @@ if git rev-parse "$TAG_NAME" &>/dev/null; then
 fi
 
 # 创建/更新 tag
-run "git tag -f -a '${TAG_NAME}' -m 'Release ${TAG_NAME}'"
+run git tag -f -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
 
 # 推送 tag 到远程
-run "git push '${REMOTE_NAME}' 'refs/tags/${TAG_NAME}' --force"
+run git push "${REMOTE_NAME}" "refs/tags/${TAG_NAME}" --force
 
 if $DRY_RUN; then
     echo ""

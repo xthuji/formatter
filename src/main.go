@@ -10,10 +10,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 
-	"github.com/formatter/formatter/data"
-	"github.com/formatter/formatter/src/appcommon"
-	"github.com/formatter/formatter/src/config"
-	"github.com/formatter/formatter/src/wailsapp"
+	"formatter/data"
+	"formatter/src/config"
+	"formatter/src/wailsapp"
 )
 
 //go:embed all:ui/static
@@ -44,8 +43,8 @@ var globalFlagsWithValue = map[string]bool{
 func main() {
 	// 注入默认配置 (源自 //go:embed data/config.json)
 	config.SetDefaultConfig(data.ConfigJSON)
-	// 注入版本号 (源自 //go:embed data/version.txt，全应用唯一版本数据源)
-	appcommon.SetVersion(string(data.VersionText))
+	// 版本号 appcommon.Version 由构建时 ldflags -X 注入 (数据源: 根目录 VERSION 文件)，
+	// 与 xgames 的版本管理方式一致，无需运行时读取外部文件。
 
 	// 检测是否为 CLI 模式：扫描参数，跳过全局标志及其值，查找是否包含已知 CLI 子命令
 	if isCLIMode() {

@@ -435,7 +435,7 @@
         el.innerHTML = '<div class="item"><span class="value err">状态加载失败</span></div>';
         return;
       }
-      // 更新版本号显示 (源自 data/version.txt，通过 /api/status 返回)
+      // 更新版本号显示 (源自根目录 VERSION，构建时经 ldflags 注入，通过 /api/status 返回)
       if (data.version) {
         const appVer = $("appVersion");
         if (appVer) appVer.textContent = "v" + data.version;

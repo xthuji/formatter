@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/formatter/formatter/src/appcommon"
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/appcommon"
+	"formatter/src/config"
 )
 
 func TestDefault(t *testing.T) {

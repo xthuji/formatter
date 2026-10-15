@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/formatter/formatter/src/appcommon"
+	"formatter/src/appcommon"
 )
 
 // setupCRUDTest 备份 data/config.json，在 CRUD 测试结束后恢复原文件并重载 testCore，

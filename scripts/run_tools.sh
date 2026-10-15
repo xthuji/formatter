@@ -20,8 +20,8 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_NAME="formatter"
 APP_NAME="Formatter"            # App / 可执行文件展示名
 PROJECT_BUNDLE_ID="com.xthuji.formatter"
-APP_VERSION="$(cat "${PROJECT_ROOT}/data/version.txt" 2>/dev/null | tr -d '[:space:]')"
-APP_VERSION="${APP_VERSION:-1.0.0}" # 源自 data/version.txt，回退默认值
+APP_VERSION="$(cat "${PROJECT_ROOT}/VERSION" 2>/dev/null | tr -d '[:space:]')"
+APP_VERSION="${APP_VERSION:-dev}" # 源自根目录 VERSION 文件，回退默认值
 BUILD_DIR="${PROJECT_ROOT}/build"
 RELEASE_DIR="${PROJECT_ROOT}/release"
 DATA_DIR="${PROJECT_ROOT}/data"
@@ -725,8 +725,9 @@ build_go_binary() {
     BIN_PATH="${BUILD_DIR}/${BIN_NAME}"
 
     print_step "go build (${BUILD_TAGS}, CGO_ENABLED=${BUILD_CGO}) → ${BIN_NAME}"
+    local ldflags="-s -w -X formatter/src/appcommon.Version=${APP_VERSION}"
     if CGO_ENABLED="$BUILD_CGO" GOOS="$TARGET_GOOS" GOARCH="$TARGET_GOARCH" \
-        go build -trimpath -tags "${BUILD_TAGS}" -ldflags="-s -w" -o "$BIN_PATH" ./src/; then
+        go build -trimpath -tags "${BUILD_TAGS}" -ldflags="${ldflags}" -o "$BIN_PATH" ./src/; then
         local size
         size=$(du -h "$BIN_PATH" | cut -f1)
         print_ok "二进制构建成功: ${BIN_NAME} (${size})"
@@ -864,10 +865,8 @@ package_macos() {
     # 整包 ad-hoc 签名: 内嵌二进制路径变化后重新签名，降低 Gatekeeper 拦截概率
     codesign_adhoc "$app_dir"
 
-    rm -rf "${RELEASE_DIR}/${APP_NAME}.app"
-    cp -R "$app_dir" "$RELEASE_DIR/"
-    print_ok "已复制到 release/: ${APP_NAME}.app"
-
+    # .app 仅保留在 build/ 供本地调试与打包源使用；release/ 只放最终分发产物 (dmg，
+    # 回退时 7z/zip)，不再复制散装 .app 目录
     # DMG 为首选分发产物 (拖拽安装)；hdiutil 不可用或生成失败时回退 7z/zip
     build_dmg_macos "$app_dir" || archive_macos "$app_dir" || return 1
     print_usage_hint macos
@@ -1065,11 +1064,11 @@ print_usage_hint() {
         macos)
             printf "    %b拖拽安装:%b 双击挂载 %s/$(artifact_base).dmg，将 %s.app 拖入 Applications\n" \
                 "$BOLD" "$NC" "$RELEASE_DIR" "$APP_NAME"
-            printf "    %b桌面应用:%b open %s/%s.app\n" "$BOLD" "$NC" "$RELEASE_DIR" "$APP_NAME"
+            printf "    %b本地调试:%b open %s/%s.app (尚未安装的 build 产物)\n" "$BOLD" "$NC" "$BUILD_DIR" "$APP_NAME"
             printf "    %bCLI 调用:%b %s/${APP_NAME} format main.go\n" "$BOLD" "$NC" \
-                "${RELEASE_DIR}/${APP_NAME}.app/Contents/MacOS"
+                "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS"
             printf "    %bWeb UI:%b   %s/${APP_NAME} serve\n" "$BOLD" "$NC" \
-                "${RELEASE_DIR}/${APP_NAME}.app/Contents/MacOS"
+                "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS"
             ;;
         linux)
             printf "    %b桌面应用:%b 解压后运行 %s/install.sh，或直接执行 %s/bin/%s\n" \
@@ -1271,8 +1270,8 @@ step_run() {
     if ! step_check_env; then step_report; return 1; fi
     if ! step_build; then step_report; return 1; fi
 
-    # 启动 App (macOS 优先用 .app bundle，其他平台直接跑二进制)
-    local app_path="${RELEASE_DIR}/${APP_NAME}.app"
+    # 启动 App (macOS 优先用 build/ 中的 .app bundle，其他平台直接跑二进制)
+    local app_path="${BUILD_DIR}/${APP_NAME}.app"
     if [[ "$TARGET_GOOS" == "darwin" && -d "$app_path" ]]; then
         print_step "启动 macOS App: ${app_path}"
         if open "$app_path" 2>/dev/null; then

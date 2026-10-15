@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/formatter/formatter/src/formatter"
+	"formatter/src/formatter"
 )
 
 type JSONFormatter struct{}

@@ -6,16 +6,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/formatter/formatter/src/compressor"
-	"github.com/formatter/formatter/src/config"
-	"github.com/formatter/formatter/src/formatter"
-	"github.com/formatter/formatter/src/highlighter"
-	iocore "github.com/formatter/formatter/src/io"
-	"github.com/formatter/formatter/src/pipeline"
-	"github.com/formatter/formatter/src/registry"
+	"formatter/src/compressor"
+	"formatter/src/config"
+	"formatter/src/formatter"
+	"formatter/src/highlighter"
+	iocore "formatter/src/io"
+	"formatter/src/pipeline"
+	"formatter/src/registry"
 
-	natcomp "github.com/formatter/formatter/src/compressor/native"
-	natfmt "github.com/formatter/formatter/src/formatter/native"
+	natcomp "formatter/src/compressor/native"
+	natfmt "formatter/src/formatter/native"
 )
 
 type mockReader struct {

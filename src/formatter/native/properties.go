@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/formatter/formatter/src/formatter"
+	"formatter/src/formatter"
 	"github.com/magiconair/properties"
 )
 

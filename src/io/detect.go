@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/config"
 )
 
 // compiledRule 是一条已编译的检测规则 (shebang 或内容正则)。

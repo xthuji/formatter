@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/formatter/formatter/src/binary"
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/binary"
+	"formatter/src/config"
 )
 
 func TestNewManager(t *testing.T) {
