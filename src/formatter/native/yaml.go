@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/formatter/formatter/src/formatter"
+	"formatter/src/formatter"
 	"gopkg.in/yaml.v3"
 )
 

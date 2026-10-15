@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/formatter/formatter/src/binary"
-	"github.com/formatter/formatter/src/config"
-	iocore "github.com/formatter/formatter/src/io"
-	"github.com/formatter/formatter/src/pipeline"
+	"formatter/src/binary"
+	"formatter/src/config"
+	iocore "formatter/src/io"
+	"formatter/src/pipeline"
 )
 
 // reload 在配置变更 (CRUD) 后重建二进制注册表、格式化/压缩注册表和流水线引擎。

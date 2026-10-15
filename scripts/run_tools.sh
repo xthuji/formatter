@@ -1,288 +1,263 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Formatter - 构建与运行工具 (跨平台: macOS(amd64/arm64 交叉) / Linux / Windows Git Bash)
+# =============================================================================
+# 命令:
+#   1|b,build     构建桌面 App (当前平台; --platform=<os>/<arch> 可指定目标)
+#   2|r,run       构建并前台运行 App (Ctrl+C 关闭)
+#   3|s,server    构建并前台运行 Web Server (serve 命令)
+#   4|d,dev       开发模式: go run 源码直起 Web Server
+#   5|i,install-bin下载/校验三方二进制工具到 data/bin/<os>/<arch>
+#   6|t,test      运行 Go 单元测试 (覆盖率)
+#   7|c,clean     清理构建产物
+#   0|q|exit        退出
+# =============================================================================
+# 薄入口：公共实现全部在 run_tools_master.sh（跨项目逐字节一致，禁止单项目
+# 私改），项目差异全部写在本文件的「常量与命令表」与「项目专属实现」内联区；
+# 全部构建/打包/测试逻辑集中在这里，CI workflow 只做 runner 引导与产物上传
+#（规范 4.2）。
+# =============================================================================
+
 set -euo pipefail
 
-# =============================================================================
-# run_tools.sh - Formatter 项目工具脚本
-# =============================================================================
-# 全部构建相关逻辑 (系统依赖安装 / CGO 参数 / build tags / 图标生成 / 打包)
-# 都集中在本脚本内实现。CI (.github/workflows/release.yml) 只负责 runner 引导
-# (checkout、Go 工具链) 与产物上传，不写任何依赖安装或打包细节，避免 CI 与本地漂移。
-#
-# 三平台 App 打包 (CI 中每个 job 在对应 OS 的 runner 上构建，脚本按宿主 OS 自动准备依赖):
-#   darwin/amd64|arm64 → .app bundle (icns + 内嵌工具) + ad-hoc 签名 → .dmg (拖拽安装，
-#                        staging + Applications 快捷方式；hdiutil 不可用时回退 .7z/.zip)
-#   linux/amd64        → tar.gz (bin/ + .desktop + 图标 + tools/ + install.sh)
-#   windows/amd64      → zip (Formatter.exe + config.json + icon.ico + tools/)
-# =============================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-PROJECT_NAME="formatter"
-APP_NAME="Formatter"            # App / 可执行文件展示名
+# ============================================================
+# 公共模块：母版实现（与其余桌面应用逐字节一致，请勿在此修改）
+# 先于常量区加载：母版只定义函数不执行业务，差异常量声明在下一区
+# ============================================================
+source "$SCRIPT_DIR/run_tools_master.sh"
+# ============================================================
+# 项目差异区 · 常量与命令表（脚本唯一需要按项目调整的部分）
+# ============================================================
+
+# --- 项目标识 ---
+APP_NAME="Formatter"                    # 可执行文件 / Wails outputfilename
+BUNDLE_NAME="Formatter"              # .app bundle 名（留空同 APP_NAME）
+RELEASE_PREFIX="Formatter"        # release/ 产物命名前缀（留空同 APP_NAME）
+APP_DISPLAY_NAME="Formatter"
 PROJECT_BUNDLE_ID="com.xthuji.formatter"
-APP_VERSION="$(cat "${PROJECT_ROOT}/data/version.txt" 2>/dev/null | tr -d '[:space:]')"
-APP_VERSION="${APP_VERSION:-1.0.0}" # 源自 data/version.txt，回退默认值
-BUILD_DIR="${PROJECT_ROOT}/build"
-RELEASE_DIR="${PROJECT_ROOT}/release"
-DATA_DIR="${PROJECT_ROOT}/data"
-BIN_ROOT="${DATA_DIR}/bin"          # 跨平台文件目录 (JAR 等)
-# BIN_DIR 在 detect_platform() 后设置为 ${BIN_ROOT}/${TARGET_GOOS}/${TARGET_GOARCH}
-TESTS_DIR="${PROJECT_ROOT}/tests"
-ICON_PNG="${DATA_DIR}/icon/icon.png"   # 预生成 1024x1024 位图 (构建时不再依赖 SVG 光栅化)
+export PROJECT_BUNDLE_ID
+
+# --- 目录与产物 ---
+BUILD_DIR="$PROJECT_DIR/build"
+FRONTEND_DIR="$PROJECT_DIR/src/ui/static"
+# 产物目录：默认 <frontend_dir>/dist；Vite outDir 指到别处（如 easy_diff 直写 embed
+# 目录 frontend/dist）时必须按项目覆盖，否则母版 ensure_frontend 会误判为未构建
+FRONTEND_DIST="$FRONTEND_DIR/dist"
+WAILS_CMD=""
+VERSION=""
+
+# --- 构建策略 ---
+IS_WAILS=0                     # 0=纯 Go 桌面（自行覆盖 build_impl / get_app_bundle）
+PLATFORM_SCOPE="all"        # darwin=仅面向 macOS 产物
+MACOS_MIN_VERSION="12.0"
+MACOS_UNIVERSAL_DEFAULT=0     # 1=恒产 universal；0=本地单架构 + 环境变量开关
+UNIVERSAL_ENV_VAR=""     # 例：EASYDIFF_UNIVERSAL
+WAILS_BUILD_CLEAN=0
+WAILS_PIN_VERSION=""                    # 留空=对齐 go.mod 的 wails 版本（真源）
+NEEDS_CGO=0                   # 1=Windows 构建需要 MinGW-w64
+ADHOC_SIGN=1                      # 1=macOS 构建后 ad-hoc 签名
+GO_BUILD_LDFLAGS="-s -w"
+VERSION_LD_VAR="formatter/src/appcommon.Version"        # 版本注入的 Go 变量（ldflags -X）
+LDFLAGS_EXTRA=""
+GOTOOLCHAIN_VER=""
+
+# --- 资源与配置 ---
+CONFIG_SRC=""
+CONFIG_DEST_DIR=""
+ICON_SRC="$PROJECT_DIR/data/icon/icon.png"
+
+# --- 菜单与分发 ---
+DEFAULT_CMD="run"
+FALLBACK_CMD=""
+SRC_FIND_EXPR=( -name '*.go' -o -path '*/src/*' -o -name 'VERSION' -o -name 'go.mod' -o -name 'config.json' -o -name 'icon.png' -o -name '*.desktop' )             # needs_build 的源文件匹配表达式
+TEST_PKGS=( ./tests/... )
+CLEAN_EXTRA=( coverage .downloads )
+DEV_CMD=( go run -tags desktop,production ./src serve )                    # 留空=母版默认 wails dev
+
+# --- 命令表：序号|别名(逗号分隔)|说明|处理函数（菜单/帮助/分发唯一真源）---
+commands=(
+  "1|b,build|构建桌面 App (当前平台; --platform=<os>/<arch> 可指定目标)|cmd_build"
+  "2|r,run|构建并前台运行 App (Ctrl+C 关闭)|cmd_run"
+  "3|s,server|构建并前台运行 Web Server (serve 命令)|cmd_server"
+  "4|d,dev|开发模式: go run 源码直起 Web Server|cmd_dev"
+  "5|i,install-bin|下载/校验三方二进制工具到 data/bin/<os>/<arch>|cmd_install_bin"
+  "6|t,test|运行 Go 单元测试 (覆盖率)|cmd_test"
+  "7|c,clean|清理构建产物|cmd_clean"
+)
+
+# ============================================================
+# 项目专属实现（覆盖母版默认 / 追加项目专属命令）
+# 内联区位于常量表之后、main "$@" 之前：顶层可安全展开差异常量
+# ============================================================
+# Formatter 特性：同一二进制兼作桌面 App / CLI / Web Server，不走 wails build CLI，
+# 由 go build -tags desktop,production ./src/ 编译后手工装配各平台产物；
+# CI 四个 job 用母版全局选项 --platform=<os>/<arch> 指定目标（darwin 双架构在
+# arm64 runner 上交叉编译，自动补 clang -target）。
+PROJECT_NAME="formatter"
+BUILD_TAGS="desktop,production"
+WEBKIT_PC=""                            # Linux 使用的 pkg-config 模块（webkit2gtk-4.0 / 4.1）
+WEBKIT_TAG=""                           # 用 4.1 时追加的 build tag（webkit2_41）
+WEBKIT_PKG_TO_INSTALL=""
+SEVENZIP=""
+
+DATA_DIR="${PROJECT_DIR}/data"
+BIN_ROOT="${DATA_DIR}/bin"              # 三方工具仓库目录：data/bin/<os>/<arch>/
+ICON_PNG="${ICON_SRC}"                  # 预生成 1024x1024 位图（构建时不再依赖 SVG 光栅化）
+ICON_SVG="${DATA_DIR}/icon/icon.svg"
 LINUX_DESKTOP="${DATA_DIR}/linux/formatter.desktop"
-# macOS 最低部署版本: 由脚本统一决定 (workflow 不再设置环境变量)
-MACOS_MIN_VERSION="${MACOSX_DEPLOYMENT_TARGET:-12.0}"
-GO_MIN_VERSION=""               # 由 go.mod 的 go 指令解析 (见 resolve_go_min)
 INSTALL_BIN_SCRIPT="${SCRIPT_DIR}/install-bin.sh"
 
-# ---- 颜色定义 ----
-RED=$'\033[0;31m'
-GREEN=$'\033[0;32m'
-YELLOW=$'\033[1;33m'
-CYAN=$'\033[0;36m'
-BOLD=$'\033[1m'
-DIM=$'\033[2m'
-NC=$'\033[0m'
-
-# ---- 全局状态 ----
-FAILED_STEPS=()
-TARGET_GOOS="${TARGET_GOOS:-}"
-TARGET_GOARCH="${TARGET_GOARCH:-}"
-HOST_GOOS=""                  # 宿主平台 (决定可用的编译工具链)
-HOST_GOARCH=""
-PASSTHROUGH_ARGS=()
-SKIP_DEPS=false               # --skip-deps: 跳过系统构建依赖自动安装 (已就绪的环境可用)
-WEBKIT_PC=""                  # linux 桌面构建使用的 pkg-config 模块 (webkit2gtk-4.0 / 4.1)
-WEBKIT_TAG=""                 # 使用 4.1 时追加的 build tag (webkit2_41)
-SUDO=""                       # 非 root 且存在 sudo 时为 "sudo"
-SUDO_RESOLVED=0
-APT_REFRESHED=0
-
-# ---- 基础工具函数 ----
-# 使用 printf 替代 echo -e，更安全且跨平台兼容性更好
 have() { command -v "$1" >/dev/null 2>&1; }
-print_banner() {
-    printf "\n%b═══════════════════════════════════════════════════════════════%b\n" "$CYAN" "$NC"
-    printf "%b  %b%s%b\n" "$CYAN" "$BOLD" "$1" "$NC"
-    printf "%b═══════════════════════════════════════════════════════════════%b\n" "$CYAN" "$NC"
-}
-print_step() { printf "%b[STEP]%b %s\n" "$CYAN" "$NC" "$1"; }
-print_ok()   { printf "%b[OK]%b   %s\n" "$GREEN" "$NC" "$1"; }
-print_fail() { printf "%b[FAIL]%b %s\n" "$RED" "$NC" "$1"; }
-print_warn() { printf "%b[WARN]%b %s\n" "$YELLOW" "$NC" "$1"; }
-print_info() { printf "%b[INFO]%b %s\n" "$CYAN" "$NC" "$1"; }
 
-version_gte() {
-    local ver1="$1" ver2="$2" IFS=. i
-    read -ra v1 <<< "$ver1"
-    read -ra v2 <<< "$ver2"
-    for ((i=0; i<${#v2[@]}; i++)); do
-        local a=${v1[i]:-0} b=${v2[i]:-0}
-        if ((10#$a > 10#$b)); then return 0; fi
-        if ((10#$a < 10#$b)); then return 1; fi
-    done
-    return 0
+# 跨架构编译判定直接用母版的 NATIVE_ARCH（--platform 只改写 HOST_*）
+is_cross_arch() { [ "$HOST_ARCH" != "$NATIVE_ARCH" ]; }
+
+# 三方工具目录随目标平台变化，必须在函数内取（不能在文件顶层固化）
+bin_dir() { echo "${BIN_ROOT}/${HOST_OS}/${HOST_ARCH}"; }
+
+# 三平台产物命名统一: Formatter-<版本>-<os>-<arch>
+artifact_base() { echo "${APP_NAME}-$(get_version)-${HOST_OS}-${HOST_ARCH}"; }
+
+get_app_bundle()   { echo "$BUILD_DIR/${APP_NAME}.app"; }
+get_build_binary() { echo "$BUILD_DIR/${PROJECT_NAME}_${HOST_OS}_${HOST_ARCH}${EXT}"; }
+get_run_binary() {
+  if [ "$HOST_OS" = "darwin" ]; then
+    echo "$(get_app_bundle)/Contents/MacOS/${APP_NAME}"
+  else
+    echo "$(get_build_binary)"
+  fi
 }
 
-fail() { FAILED_STEPS+=("$1"); return 1; }
+# Formatter 不用 wails build，wails.json 仅作项目元数据存档，不做版本回写
+sync_wails_version() { :; }
 
-# 更安全和高效的目录空检查
-dir_has_files() {
-    local dir="$1"
-    [[ -d "$dir" ]] || return 1
-    shopt -s nullglob dotglob
-    local files=("$dir"/*)
-    shopt -u nullglob dotglob
-    [[ ${#files[@]} -gt 0 ]]
+# release/ 只放最终归档；.app 仅留在 build/ 供本地调试
+sync_release() { mkdir -p "$PROJECT_DIR/release"; }
+
+# Wails 不用 wails build，Info.plist 由 generate_info_plist 整份生成于打包阶段，
+# 母版 fix_app_info（plutil 增量改）在此无用且会误改上一次的陈旧 bundle
+fix_app_info() { :; }
+
+# Wails 的 build/appicon.png 流程无关：图标在打包阶段按平台生成 .icns / .ico / png
+sync_app_icon() {
+  [ -f "$ICON_PNG" ] || log_warn "未找到图标源 ${ICON_PNG}，.icns/.ico 生成将跳过"
 }
 
-# init_sudo 决定包安装命令是否加 sudo 前缀。
-# root (容器) 直接执行；非 root 但有 sudo (GitHub Actions runner 为免密 sudo) 用 sudo；
-# 否则仅告警 (依赖需用户手动安装，避免构建过程卡在密码提示上)。
-init_sudo() {
-    [[ "$SUDO_RESOLVED" == "1" ]] && return 0
-    SUDO_RESOLVED=1
-    if [[ "$(id -u 2>/dev/null || echo 0)" == "0" ]]; then
-        SUDO=""
-    elif have sudo; then
-        SUDO="sudo"
-    else
-        SUDO=""
-        print_warn "当前非 root 且无 sudo，系统依赖需手动安装"
-    fi
-    return 0
-}
-
-# resolve_go_min 从 go.mod 的 go 指令解析最低 Go 版本，避免脚本与模块声明漂移
-resolve_go_min() {
-    local from_gomod=""
-    if [[ -f "${PROJECT_ROOT}/go.mod" ]]; then
-        from_gomod="$(awk '/^go[[:space:]]+/ {print $2; exit}' "${PROJECT_ROOT}/go.mod" | tr -d '[:space:]')"
-    fi
-    [[ -n "$from_gomod" ]] || from_gomod="1.21"
-    # 只取 major.minor，忽略 patch (go1.26.1 → 1.26)
-    echo "$from_gomod" | awk -F. '{printf "%s.%s\n", $1, $2}'
-}
-
-# =============================================================================
-# 归档工具定位 (7z 在 p7zip 包中为 7z/7za，在 7zip 包中为 7zz)
-# =============================================================================
-SEVENZIP=""
+# 7z 在 p7zip 包中为 7z/7za，在 7zip 包中为 7zz
 resolve_sevenzip() {
-    [[ -n "$SEVENZIP" ]] && return 0
-    local cand
-    for cand in 7z 7zz 7za p7zip; do
-        if have "$cand"; then SEVENZIP="$cand"; return 0; fi
-    done
-    return 1
+  [ -n "$SEVENZIP" ] && return 0
+  local cand
+  for cand in 7z 7zz 7za p7zip; do
+    if have "$cand"; then SEVENZIP="$cand"; return 0; fi
+  done
+  return 1
 }
 
-# =============================================================================
-# 归档辅助: zip 归档 (7z → zip → PowerShell Compress-Archive 逐级回退)
-#   $1: 目标 zip 路径   $2: 待打包目录 (归档内保留该目录作为顶层条目)
-# =============================================================================
+dir_has_files() {
+  local dir="$1"
+  [ -d "$dir" ] || return 1
+  [ -n "$(ls -A "$dir" 2>/dev/null)" ]
+}
+
+# archive_zip <目标 zip> <待打包目录>：7z → zip → PowerShell Compress-Archive 逐级回退
 archive_zip() {
-    local zip_path="$1" src_dir="$2"
-    local parent entry
-    parent="$(dirname "$src_dir")"
-    entry="$(basename "$src_dir")"
-    mkdir -p "$parent"
+  local zip_path="$1" src_dir="$2"
+  local parent entry
+  parent="$(dirname "$src_dir")"
+  entry="$(basename "$src_dir")"
+  mkdir -p "$parent"
+  rm -f "$zip_path"
+
+  if resolve_sevenzip; then
+    (cd "$parent" && "$SEVENZIP" a -tzip -mx=9 "$zip_path" "$entry" >/dev/null 2>&1)
+    [ -s "$zip_path" ] && return 0
     rm -f "$zip_path"
+  fi
+  if have zip; then
+    (cd "$parent" && zip -qr "$zip_path" "$entry")
+    [ -s "$zip_path" ] && return 0
+    rm -f "$zip_path"
+  fi
+  # Git Bash 无 7z/zip 时交给 PowerShell
+  local ps="" cand
+  for cand in powershell.exe powershell pwsh.exe pwsh; do
+    if have "$cand"; then ps="$cand"; break; fi
+  done
+  [ -n "$ps" ] || { log_warn "未找到 7z / zip / PowerShell，无法生成 zip 归档"; return 1; }
 
-    if resolve_sevenzip; then
-        (cd "$parent" && "$SEVENZIP" a -tzip -mx=9 "$zip_path" "$entry" >/dev/null 2>&1)
-        [[ -s "$zip_path" ]] && return 0
-        rm -f "$zip_path"
-    fi
-    if have zip; then
-        (cd "$parent" && zip -qr "$zip_path" "$entry")
-        [[ -s "$zip_path" ]] && return 0
-        rm -f "$zip_path"
-    fi
-    # Git Bash 无 7z/zip 时交给 PowerShell
-    local ps=""
-    local cand
-    for cand in powershell.exe powershell pwsh.exe pwsh; do
-        if have "$cand"; then ps="$cand"; break; fi
-    done
-    [[ -n "$ps" ]] || { print_warn "未找到 7z / zip / PowerShell，无法生成 zip 归档"; return 1; }
-
-    local win_src win_dst
-    if have cygpath; then
-        win_src="$(cygpath -w "${parent}/${entry}")"
-        win_dst="$(cygpath -w "$zip_path")"
-    else
-        win_src="${parent}/${entry}"
-        win_dst="$zip_path"
-    fi
-    print_info "  使用 $ps Compress-Archive 打包"
-    "$ps" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \
-        "Compress-Archive -Path '$win_src' -DestinationPath '$win_dst' -Force" >/dev/null 2>&1
-    [[ -s "$zip_path" ]]
+  local win_src win_dst
+  if have cygpath; then
+    win_src="$(cygpath -w "${parent}/${entry}")"
+    win_dst="$(cygpath -w "$zip_path")"
+  else
+    win_src="${parent}/${entry}"
+    win_dst="$zip_path"
+  fi
+  log_info "使用 $ps Compress-Archive 打包"
+  "$ps" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \
+    "Compress-Archive -Path '${win_src}' -DestinationPath '${win_dst}' -Force" >/dev/null 2>&1
+  [ -s "$zip_path" ]
 }
 
-# =============================================================================
-# 平台检测
-# =============================================================================
-detect_platform() {
-    # 宿主平台: 决定能否准备系统依赖 (桌面 App 无法跨 OS 编译，Linux 需要本机 GTK)
-    if [[ -z "$HOST_GOOS" ]]; then
-        case "$(uname -s)" in
-            Darwin) HOST_GOOS="darwin" ;;
-            Linux)  HOST_GOOS="linux" ;;
-            MINGW*|MSYS*|CYGWIN*) HOST_GOOS="windows" ;;
-            *) HOST_GOOS="unknown" ;;
-        esac
-    fi
-    if [[ -z "$HOST_GOARCH" ]]; then
-        case "$(uname -m)" in
-            x86_64|amd64) HOST_GOARCH="amd64" ;;
-            arm64|aarch64) HOST_GOARCH="arm64" ;;
-            *) HOST_GOARCH="amd64" ;;
-        esac
-    fi
-    if [[ -z "$TARGET_GOOS" ]]; then
-        TARGET_GOOS="$HOST_GOOS"
-        [[ "$TARGET_GOOS" == "unknown" ]] && TARGET_GOOS="darwin"
-    fi
-    if [[ -z "$TARGET_GOARCH" ]]; then
-        TARGET_GOARCH="$HOST_GOARCH"
-    fi
-    # 平台特定的二进制目录: data/bin/{os}/{arch}/
-    BIN_DIR="${BIN_ROOT}/${TARGET_GOOS}/${TARGET_GOARCH}"
-}
-
-# is_cross_arch 仅在「同 OS 不同架构」时为真 (macOS amd64↔arm64 交叉编译)
-is_cross_arch() {
-    [[ "$TARGET_GOOS" == "$HOST_GOOS" ]] && [[ "$TARGET_GOARCH" != "$HOST_GOARCH" ]]
-}
-
-# =============================================================================
-# 图标生成逻辑 (基于预转换的 icon.png 1024x1024，缺失时回退 icon.svg 矢量渲染)
-# =============================================================================
-ICON_SVG="${DATA_DIR}/icon/icon.svg"
-
-# generate_icon_png 缩放到指定尺寸。工具回退链:
-#   sips (macOS 自带) → ImageMagick → rsvg-convert (从 SVG 矢量渲染) → 直接复制源 PNG
+# generate_icon_png <尺寸> <输出>：sips(macOS) → ImageMagick → rsvg-convert(矢量) → 原图复制
 generate_icon_png() {
-    local size="$1" output="$2"
-    if [[ ! -f "$ICON_PNG" ]] && [[ ! -f "$ICON_SVG" ]]; then
-        print_warn "icon.png/icon.svg 均不存在"
-        return 1
-    fi
-
-    if have sips && [[ -f "$ICON_PNG" ]]; then
-        sips -z "$size" "$size" "$ICON_PNG" --out "$output" 2>/dev/null && return 0
-    fi
-    if [[ -f "$ICON_PNG" ]]; then
-        if have magick; then
-            magick "$ICON_PNG" -resize "${size}x${size}" "$output" 2>/dev/null && return 0
-        elif have convert; then
-            convert "$ICON_PNG" -resize "${size}x${size}" "$output" 2>/dev/null && return 0
-        fi
-    fi
-    # Linux/CI: 直接从 SVG 渲染，质量优于位图缩放
-    if have rsvg-convert && [[ -f "$ICON_SVG" ]]; then
-        rsvg-convert -w "$size" -h "$size" -o "$output" "$ICON_SVG" 2>/dev/null && return 0
-    fi
-    # 最终回退: 直接复制源 PNG (无缩放工具时，至少保证有图标)
-    [[ -f "$ICON_PNG" ]] && { cp "$ICON_PNG" "$output" 2>/dev/null && return 0; }
+  local size="$1" output="$2"
+  if [ ! -f "$ICON_PNG" ] && [ ! -f "$ICON_SVG" ]; then
+    log_warn "icon.png / icon.svg 均不存在"
     return 1
+  fi
+  if have sips && [ -f "$ICON_PNG" ]; then
+    sips -z "$size" "$size" "$ICON_PNG" --out "$output" 2>/dev/null && return 0
+  fi
+  if [ -f "$ICON_PNG" ]; then
+    if have magick; then
+      magick "$ICON_PNG" -resize "${size}x${size}" "$output" 2>/dev/null && return 0
+    elif have convert; then
+      convert "$ICON_PNG" -resize "${size}x${size}" "$output" 2>/dev/null && return 0
+    fi
+  fi
+  # Linux/CI: 直接从 SVG 渲染，质量优于位图缩放
+  if have rsvg-convert && [ -f "$ICON_SVG" ]; then
+    rsvg-convert -w "$size" -h "$size" -o "$output" "$ICON_SVG" 2>/dev/null && return 0
+  fi
+  [ -f "$ICON_PNG" ] && { cp "$ICON_PNG" "$output" 2>/dev/null && return 0; }
+  return 1
 }
 
-# =============================================================================
-# Windows .ico 生成: ImageMagick 优先，缺失时用 PowerShell + System.Drawing
-# 组装多尺寸 PNG-in-ICO (Vista+ 支持)，避免为构建额外安装图像工具
-# =============================================================================
+# Windows .ico：ImageMagick 优先，缺失时用 PowerShell + System.Drawing 组装
+# 多尺寸 PNG-in-ICO（Vista+ 支持），避免为构建额外安装图像工具
 generate_ico() {
-    local output="$1"
-    [[ -f "$ICON_PNG" ]] || { print_warn "icon.png 不存在，跳过 .ico 生成"; return 1; }
+  local output="$1"
+  [ -f "$ICON_PNG" ] || { log_warn "icon.png 不存在，跳过 .ico 生成"; return 1; }
 
-    if have magick; then
-        magick "$ICON_PNG" -define icon:auto-resize=256,128,64,48,32,16 "$output" 2>/dev/null \
-            && [[ -s "$output" ]] && return 0
-    elif have convert; then
-        convert "$ICON_PNG" -define icon:auto-resize=256,128,64,48,32,16 "$output" 2>/dev/null \
-            && [[ -s "$output" ]] && return 0
-    fi
+  if have magick; then
+    magick "$ICON_PNG" -define icon:auto-resize=256,128,64,48,32,16 "$output" 2>/dev/null \
+      && [ -s "$output" ] && return 0
+  elif have convert; then
+    convert "$ICON_PNG" -define icon:auto-resize=256,128,64,48,32,16 "$output" 2>/dev/null \
+      && [ -s "$output" ] && return 0
+  fi
 
-    local ps=""
-    local cand
-    for cand in powershell.exe powershell pwsh.exe pwsh; do
-        if have "$cand"; then ps="$cand"; break; fi
-    done
-    [[ -n "$ps" ]] || { print_warn "无 ImageMagick / PowerShell，跳过 .ico 生成"; return 1; }
+  local ps="" cand
+  for cand in powershell.exe powershell pwsh.exe pwsh; do
+    if have "$cand"; then ps="$cand"; break; fi
+  done
+  [ -n "$ps" ] || { log_warn "无 ImageMagick / PowerShell，跳过 .ico 生成"; return 1; }
 
-    print_step "使用 $ps 从 icon.png 生成 .ico ..."
-    # Git Bash 下 $ICON_PNG 是 /c/... 形式的 POSIX 路径，.NET 不识别，需 cygpath 转换
-    local icon_arg="$ICON_PNG" out_arg="$output"
-    if have cygpath; then
-        icon_arg="$(cygpath -w "$ICON_PNG")"
-        out_arg="$(cygpath -w "$output")"
-    fi
-    mkdir -p "$(dirname "$output")"
-    FMT_ICON_PNG="$icon_arg" FMT_ICO_OUT="$out_arg" "$ps" -NoProfile -NonInteractive \
-        -ExecutionPolicy Bypass -Command "$(cat <<'PS_EOF'
+  log_info "使用 $ps 从 icon.png 生成 .ico ..."
+  # Git Bash 下路径是 /c/... 形式，.NET 不识别，需 cygpath 转换
+  local icon_arg="$ICON_PNG" out_arg="$output"
+  if have cygpath; then
+    icon_arg="$(cygpath -w "$ICON_PNG")"
+    out_arg="$(cygpath -w "$output")"
+  fi
+  mkdir -p "$(dirname "$output")"
+  FMT_ICON_PNG="$icon_arg" FMT_ICO_OUT="$out_arg" "$ps" -NoProfile -NonInteractive \
+    -ExecutionPolicy Bypass -Command "$(cat <<'PS_EOF'
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $src = $env:FMT_ICON_PNG
@@ -318,81 +293,49 @@ foreach ($e in $blobs) {
 $bw.Flush(); $bw.Close(); $fs.Dispose()
 PS_EOF
 )" >/dev/null 2>&1
-    [[ -s "$output" ]] && return 0
-    return 1
-}
-
-# =============================================================================
-# macOS ad-hoc 签名 (无开发者证书；arm64 二进制必须签名才能加载，且可降低
-# Gatekeeper 拦截风险)。失败仅告警，不阻断打包。
-# =============================================================================
-codesign_adhoc() {
-    local target="$1"
-    have codesign || { print_warn "codesign 不可用，跳过签名"; return 0; }
-    if [[ -d "$target" ]]; then
-        codesign --force --deep --sign - --timestamp=none "$target" >/dev/null 2>&1 \
-            && print_ok ".app 已 ad-hoc 签名" \
-            || print_warn ".app ad-hoc 签名失败 (不影响打包产物)"
-    else
-        codesign --force --sign - --timestamp=none "$target" >/dev/null 2>&1 \
-            && print_ok "二进制已 ad-hoc 签名" \
-            || print_warn "二进制 ad-hoc 签名失败 (不影响打包产物)"
-    fi
-    return 0
+  [ -s "$output" ]
 }
 
 generate_icns() {
-    local output_icns="$1"
-    [[ ! -f "$ICON_PNG" ]] && { print_warn "icon.png 不存在，跳过 .icns 生成"; return 1; }
+  local output_icns="$1"
+  [ -f "$ICON_PNG" ] || { log_warn "icon.png 不存在，跳过 .icns 生成"; return 1; }
 
-    print_step "从 icon.png 生成 .icns ..."
-    local tmp_base iconset_dir
-    tmp_base="$(mktemp -d)"
-    iconset_dir="${tmp_base}/AppIcon.iconset"
-    mkdir -p "$iconset_dir"
+  log_info "从 icon.png 生成 .icns ..."
+  local tmp_base iconset_dir
+  tmp_base="$(mktemp -d)"
+  iconset_dir="${tmp_base}/AppIcon.iconset"
+  mkdir -p "$iconset_dir"
 
-    # 生成所有尺寸，允许部分失败 (至少需要一个成功)
-    local success_count=0 total_count=0
-    local sizes=(16 32 128 256 512)
-    for s in "${sizes[@]}"; do
-        local s2=$((s * 2))
-        total_count=$((total_count + 2))
-        if generate_icon_png "$s" "${iconset_dir}/icon_${s}x${s}.png"; then
-            success_count=$((success_count + 1))
-        else
-            print_warn "生成 ${s}x${s} PNG 失败"
-        fi
-        if generate_icon_png "$s2" "${iconset_dir}/icon_${s}x${s}@2x.png"; then
-            success_count=$((success_count + 1))
-        else
-            print_warn "生成 ${s}x${s}@2x PNG 失败"
-        fi
-    done
-
-    if [[ $success_count -eq 0 ]]; then
-        print_fail "所有尺寸 PNG 生成均失败，无法创建 .icns"
-        rm -rf "$tmp_base"
-        return 1
-    fi
-    print_info "  PNG 生成: ${success_count}/${total_count} 成功"
-
-    if command -v iconutil &>/dev/null; then
-        if iconutil -c icns "$iconset_dir" -o "$output_icns" 2>/dev/null; then
-            print_ok ".icns 生成成功: $(basename "$output_icns")"
-            rm -rf "$tmp_base"
-            return 0
-        fi
-    fi
-
-    print_fail "iconutil 不可用或 .icns 转换失败"
+  # 生成所有尺寸，允许部分失败（至少需要一个成功）
+  local ok_count=0 total=0 s s2
+  for s in 16 32 128 256 512; do
+    s2=$((s * 2))
+    total=$((total + 2))
+    if generate_icon_png "$s" "${iconset_dir}/icon_${s}x${s}.png"; then ok_count=$((ok_count + 1)); fi
+    if generate_icon_png "$s2" "${iconset_dir}/icon_${s}x${s}@2x.png"; then ok_count=$((ok_count + 1)); fi
+  done
+  if [ "$ok_count" -eq 0 ]; then
+    log_warn "所有尺寸 PNG 生成均失败，无法创建 .icns"
     rm -rf "$tmp_base"
     return 1
+  fi
+  log_info "PNG 生成: ${ok_count}/${total} 成功"
+
+  if have iconutil && iconutil -c icns "$iconset_dir" -o "$output_icns" 2>/dev/null; then
+    rm -rf "$tmp_base"
+    log_success ".icns 生成成功: $(basename "$output_icns")"
+    return 0
+  fi
+  log_warn "iconutil 不可用或 .icns 转换失败"
+  rm -rf "$tmp_base"
+  return 1
 }
 
-# 生成 Info.plist 内容
+# 手工装配 .app 的 Info.plist（非 Wails 生成，故整份写出）
 generate_info_plist() {
-    local target_file="$1"
-    cat > "$target_file" << PLIST
+  local version plist="$1"
+  version=$(get_version)
+  cat > "$plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -404,9 +347,9 @@ generate_info_plist() {
     <key>CFBundleIdentifier</key>
     <string>${PROJECT_BUNDLE_ID}</string>
     <key>CFBundleVersion</key>
-    <string>${APP_VERSION}</string>
+    <string>${version}</string>
     <key>CFBundleShortVersionString</key>
-    <string>${APP_VERSION}</string>
+    <string>${version}</string>
     <key>CFBundleExecutable</key>
     <string>${APP_NAME}</string>
     <key>CFBundlePackageType</key>
@@ -422,564 +365,385 @@ generate_info_plist() {
 PLIST
 }
 
-# =============================================================================
-# 系统构建依赖准备 (由 build 自动调用，CI workflow 不再声明任何依赖安装步骤)
-# =============================================================================
-apt_refresh_once() {
-    [[ "$APT_REFRESHED" == "1" ]] && return 0
-    APT_REFRESHED=1
-    print_step "刷新 apt 索引 ..."
-    $SUDO apt-get update -qq >/dev/null 2>&1 || print_warn "apt-get update 未完全成功，继续尝试安装"
-    return 0
+# 整包 ad-hoc 签名：内嵌工具改变后需重签 bundle（母版 adhoc_sign 只签裸二进制）。
+# bundle 内有 Resources/bin/* 独立二进制，必须逐个签名后再签整包
+codesign_bundle() {
+  # 复用母版 adhoc_sign：清 xattr + 内嵌 Mach-O 逐个签名 + 整包签名 + 校验。
+  # 曾只用 --deep 整包签，Resources/bin 下的工具仍是 not signed at all，
+  # 分发后 Gatekeeper 会判「已损坏」；内嵌工具改动后必须重签。
+  local target="$1" app
+  app=$(get_app_bundle)
+  [ "$target" = "$app" ] || log_warn "签名目标与 get_app_bundle 不一致: ${target} vs ${app}"
+  adhoc_sign
 }
 
-# linux_pkg_has 判断包是否可由当前发行版的包管理器提供
+# =============================================================================
+# 依赖准备（Linux 多发行版包管理器；macOS 额外备 7z 供 DMG 回退归档）
+# =============================================================================
 linux_pkg_has() {
-    local pkg="$1"
-    if have apt-get; then
-        apt_refresh_once
-        apt-cache show "$pkg" >/dev/null 2>&1
-    elif have dnf; then
-        dnf -q list "$pkg" >/dev/null 2>&1
-    elif have yum; then
-        yum -q list "$pkg" >/dev/null 2>&1
-    elif have pacman; then
-        pacman -Si "$pkg" >/dev/null 2>&1
-    elif have zypper; then
-        zypper info -t package "$pkg" >/dev/null 2>&1
-    else
-        return 1
-    fi
+  local pkg="$1"
+  if have apt-get; then
+    apt_refresh_once
+    apt-cache show "$pkg" >/dev/null 2>&1
+  elif have dnf;   then dnf -q list "$pkg" >/dev/null 2>&1
+  elif have yum;   then yum -q list "$pkg" >/dev/null 2>&1
+  elif have pacman; then pacman -Si "$pkg" >/dev/null 2>&1
+  elif have zypper; then zypper info -t package "$pkg" >/dev/null 2>&1
+  else return 1
+  fi
 }
 
-# linux_pkg_install 安装缺失的构建依赖 (按发行版分派包管理器)
 linux_pkg_install() {
-    [[ $# -eq 0 ]] && return 0
-    print_step "安装 Linux 构建依赖: $*"
-    local pm=""
-    if have apt-get; then pm="apt-get"; elif have dnf; then pm="dnf"
-    elif have yum; then pm="yum"; elif have pacman; then pm="pacman"
-    elif have zypper; then pm="zypper"; fi
-
-    case "$pm" in
-        apt-get)
-            apt_refresh_once
-            $SUDO apt-get install -y --no-install-recommends "$@" || { print_warn "apt-get install 失败: $*"; return 1; } ;;
-        dnf|yum)
-            $SUDO "$pm" install -y "$@" || { print_warn "$pm install 失败: $*"; return 1; } ;;
-        pacman)
-            $SUDO pacman -S --noconfirm --needed "$@" || { print_warn "pacman -S 失败: $*"; return 1; } ;;
-        zypper)
-            $SUDO zypper --non-interactive install "$@" || { print_warn "zypper install 失败: $*"; return 1; } ;;
-        *)
-            print_warn "未识别的包管理器，请手动安装: $*"; return 1 ;;
-    esac
-    return 0
+  [ $# -eq 0 ] && return 0
+  log_info "安装 Linux 构建依赖: $*"
+  local pm=""
+  if have apt-get; then pm="apt-get"
+  elif have dnf; then pm="dnf"
+  elif have yum; then pm="yum"
+  elif have pacman; then pm="pacman"
+  elif have zypper; then pm="zypper"
+  fi
+  # shellcheck disable=SC2086
+  case "$pm" in
+    apt-get) apt_refresh_once
+             DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y --no-install-recommends "$@" ;;
+    dnf|yum) $SUDO "$pm" install -y "$@" ;;
+    pacman)  $SUDO pacman -S --noconfirm --needed "$@" ;;
+    zypper)  $SUDO zypper --non-interactive install "$@" ;;
+    *)       log_warn "未识别的包管理器，请手动安装: $*"; return 1 ;;
+  esac || { log_warn "包安装失败: $*"; return 1; }
+  return 0
 }
 
-# resolve_webkit_variant 选定 WebKitGTK 版本与对应的 Wails build tag。
-# Wails v2 仅用 webkit2gtk-4.0 的 pkg-config 名，要链 4.1 必须加 webkit2_41 tag
-# (Ubuntu 23.10+ / Debian 12+ 已不再提供 4.0 开发包)。
-WEBKIT_PKG_TO_INSTALL=""
+# Wails v2 源码只用 webkit2gtk-4.0 的 pkg-config 名，要链 4.1 必须加 webkit2_41 tag
+# （Ubuntu 23.10+ / Debian 12+ 已不再提供 4.0 开发包）
 resolve_webkit_variant() {
-    if pkg-config --exists webkit2gtk-4.1 2>/dev/null; then
-        WEBKIT_PC="webkit2gtk-4.1"; WEBKIT_TAG="webkit2_41"; return 0
-    fi
-    if pkg-config --exists webkit2gtk-4.0 2>/dev/null; then
-        WEBKIT_PC="webkit2gtk-4.0"; WEBKIT_TAG=""; return 0
-    fi
-    if linux_pkg_has libwebkit2gtk-4.1-dev; then
-        WEBKIT_PC="webkit2gtk-4.1"; WEBKIT_TAG="webkit2_41"; WEBKIT_PKG_TO_INSTALL="libwebkit2gtk-4.1-dev"
-    elif linux_pkg_has libwebkit2gtk-4.0-dev; then
-        WEBKIT_PC="webkit2gtk-4.0"; WEBKIT_TAG=""; WEBKIT_PKG_TO_INSTALL="libwebkit2gtk-4.0-dev"
-    else
-        WEBKIT_PC=""; WEBKIT_TAG=""; WEBKIT_PKG_TO_INSTALL=""
-        return 1
-    fi
-    return 0
+  if pkg-config --exists webkit2gtk-4.1 2>/dev/null; then
+    WEBKIT_PC="webkit2gtk-4.1"; WEBKIT_TAG="webkit2_41"; return 0
+  fi
+  if pkg-config --exists webkit2gtk-4.0 2>/dev/null; then
+    WEBKIT_PC="webkit2gtk-4.0"; WEBKIT_TAG=""; return 0
+  fi
+  if linux_pkg_has libwebkit2gtk-4.1-dev; then
+    WEBKIT_PC="webkit2gtk-4.1"; WEBKIT_TAG="webkit2_41"; WEBKIT_PKG_TO_INSTALL="libwebkit2gtk-4.1-dev"
+  elif linux_pkg_has libwebkit2gtk-4.0-dev; then
+    WEBKIT_PC="webkit2gtk-4.0"; WEBKIT_TAG=""; WEBKIT_PKG_TO_INSTALL="libwebkit2gtk-4.0-dev"
+  else
+    WEBKIT_PC=""; WEBKIT_TAG=""; WEBKIT_PKG_TO_INSTALL=""
+    return 1
+  fi
+  return 0
 }
 
 ensure_macos_deps() {
-    if ! have clang; then
-        print_fail "缺少 clang，请安装 Xcode Command Line Tools: xcode-select --install"
-        fail "deps"; return 1
+  [ -n "$(command -v clang 2>/dev/null)" ] \
+    || log_error "缺少 clang，请安装 Xcode Command Line Tools: xcode-select --install"
+  xcrun --sdk macosx --show-sdk-path >/dev/null 2>&1 \
+    || log_error "缺少 macOS SDK (xcrun --sdk macosx --show-sdk-path)"
+  # 7z 压缩率最高（.app 内嵌工具体量大）；缺失时尝试 brew，仍缺失则归档回退 zip
+  if ! resolve_sevenzip; then
+    if have brew; then
+      log_info "brew install p7zip（用于 7z 打包）..."
+      run brew install p7zip >/dev/null 2>&1 || true
+      resolve_sevenzip || log_warn "p7zip 安装失败，将回退 zip 打包"
+    else
+      log_warn "未找到 7z 且无 brew，将回退 zip 打包"
     fi
-    if ! xcrun --sdk macosx --show-sdk-path >/dev/null 2>&1; then
-        print_fail "缺少 macOS SDK (xcrun --sdk macosx --show-sdk-path)"
-        fail "deps"; return 1
-    fi
-    # 7z 压缩率最高 (.app 内工具体量大)；缺失时尝试 brew，仍缺失则打包回退 zip
-    if ! resolve_sevenzip; then
-        if have brew; then
-            print_step "brew install p7zip (用于 7z 打包) ..."
-            brew install p7zip >/dev/null 2>&1 || print_warn "p7zip 安装失败，将回退 zip 打包"
-            resolve_sevenzip || true
-        else
-            print_warn "未找到 7z 且无 brew，将回退 zip 打包"
-        fi
-    fi
-    print_ok "macOS 构建依赖就绪 (clang + macOS SDK，最低部署版本 ${MACOS_MIN_VERSION})"
-    return 0
+  fi
+  log_success "macOS 构建依赖就绪 (clang + macOS SDK，最低部署版本 ${MACOS_MIN_VERSION})"
 }
 
 ensure_linux_deps() {
-    init_sudo
-    local need=()
+  local need=()
+  have pkg-config || need+=(pkg-config)
+  have gcc        || need+=(build-essential)
+  have zip        || need+=(zip)
+  pkg-config --exists gtk+-3.0 2>/dev/null || need+=(libgtk-3-dev)
 
-    have pkg-config || need+=(pkg-config)
-    have gcc      || need+=(build-essential)
-    pkg-config --exists gtk+-3.0 2>/dev/null || need+=(libgtk-3-dev)
+  if ! resolve_webkit_variant; then
+    log_error "未找到可匹配的 WebKitGTK 开发包 (libwebkit2gtk-4.0-dev / 4.1-dev)，请确认软件源已刷新"
+  fi
+  [ -n "$WEBKIT_PKG_TO_INSTALL" ] && need+=("$WEBKIT_PKG_TO_INSTALL")
 
-    if ! resolve_webkit_variant; then
-        print_fail "未能在本系统找到或匹配到 WebKitGTK 开发包 (libwebkit2gtk-4.0-dev / 4.1-dev)"
-        print_info "  请确认发行版软件源已刷新，或手动安装后重试"
-        fail "deps"; return 1
-    fi
-    [[ -n "$WEBKIT_PKG_TO_INSTALL" ]] && need+=("$WEBKIT_PKG_TO_INSTALL")
+  # 图标缩放：Linux 无 sips，用 librsvg 直接从 SVG 矢量渲染（已有缩放工具则不装）
+  if ! have magick && ! have convert && ! have rsvg-convert; then
+    linux_pkg_has librsvg2-bin && need+=(librsvg2-bin)
+  fi
 
-    # 图标缩放: Linux 无 sips，用 librsvg 直接从 icon.svg 矢量渲染 (已具备缩放工具则不装)
-    if ! have magick && ! have convert && ! have rsvg-convert; then
-        linux_pkg_has librsvg2-bin && need+=(librsvg2-bin)
-    fi
+  [ ${#need[@]} -eq 0 ] || linux_pkg_install "${need[@]}" || log_error "Linux 构建依赖安装失败"
 
-    if [[ ${#need[@]} -gt 0 ]]; then
-        linux_pkg_install "${need[@]}" || { print_fail "Linux 构建依赖安装失败"; fail "deps"; return 1; }
-    fi
-
-    if ! pkg-config --exists gtk+-3.0 "$WEBKIT_PC" 2>/dev/null; then
-        print_fail "pkg-config 无法解析 gtk+-3.0 / ${WEBKIT_PC}: $(pkg-config --errors --exists gtk+-3.0 "$WEBKIT_PC" 2>&1 | head -3)"
-        print_info "  提示: 已用 --skip-deps 跳过安装时，需确保上述开发包已就绪"
-        fail "deps"; return 1
-    fi
-    print_ok "Linux 构建依赖就绪 (${WEBKIT_PC} $(pkg-config --modversion "$WEBKIT_PC")${WEBKIT_TAG:+, build tag: ${WEBKIT_TAG}})"
-    return 0
-}
-
-ensure_windows_deps() {
-    # Wails v2 在 Windows 不需要 CGO (go-webview2 通过 winloader 动态加载
-    # WebView2Loader.dll)，因此无需 MinGW-w64/gcc，避免在 runner 上安装工具链
-    if ! resolve_sevenzip; then
-        print_info "未找到 7z，zip 将由 PowerShell Compress-Archive 生成"
-    fi
-    print_ok "Windows 构建依赖就绪 (CGO_ENABLED=0，无需 C 工具链)"
-    return 0
-}
-
-# step_prepare_deps 按目标平台自动准备系统级构建依赖 (幂等)
-step_prepare_deps() {
-    detect_platform
-    if [[ "$SKIP_DEPS" == "true" ]]; then
-        print_info "--skip-deps: 跳过系统构建依赖自动安装"
-        return 0
-    fi
-    if [[ "$TARGET_GOOS" != "$HOST_GOOS" ]]; then
-        print_warn "跨 OS 构建 (${HOST_GOOS} → ${TARGET_GOOS})，跳过目标 OS 的依赖安装"
-        print_info "  Linux/macOS 桌面 App 需目标 OS 本机的 GTK/WebKit/Cocoa；Windows 无 CGO 需求可跨 OS 构建"
-        return 0
-    fi
-    case "$TARGET_GOOS" in
-        darwin)  ensure_macos_deps ;;
-        linux)   ensure_linux_deps ;;
-        windows) ensure_windows_deps ;;
-        *)       print_warn "未知目标平台: ${TARGET_GOOS}，跳过依赖安装"; return 0 ;;
-    esac
+  if ! pkg-config --exists gtk+-3.0 "$WEBKIT_PC" 2>/dev/null; then
+    log_error "pkg-config 无法解析 gtk+-3.0 / ${WEBKIT_PC}：$(pkg-config --errors --exists gtk+-3.0 "$WEBKIT_PC" 2>&1 | head -3)"
+  fi
+  log_success "Linux 构建依赖就绪 (${WEBKIT_PC} $(pkg-config --modversion "$WEBKIT_PC")${WEBKIT_TAG:+, build tag: ${WEBKIT_TAG}})"
 }
 
 # =============================================================================
-# 步骤函数
+# 编译 / 三方工具内嵌（母版 cmd_build 依次调用 build_impl → hook_post_build →
+# adhoc_sign → package_platform）
 # =============================================================================
-step_check_env() {
-    print_banner "环境检查"
-    if ! have go; then
-        print_fail "未找到 go 命令"; fail "env-check"; return 1
-    fi
-    local go_version
-    go_version=$(go version | awk '{print $3}' | sed 's/^go//' || echo "0.0.0")
-    [[ -n "$GO_MIN_VERSION" ]] || GO_MIN_VERSION="$(resolve_go_min)"
-    print_info "Go 版本: ${go_version}    要求: >= ${GO_MIN_VERSION} (源自 go.mod)"
-    if ! version_gte "$go_version" "$GO_MIN_VERSION"; then
-        print_fail "Go 版本过低"; fail "env-check"; return 1
-    fi
-    print_ok "Go 版本满足要求"
-    detect_platform
-    print_info "宿主平台: ${HOST_GOOS}/${HOST_GOARCH}    目标平台: ${TARGET_GOOS}/${TARGET_GOARCH}"
-    if [[ "$TARGET_GOOS" != "$HOST_GOOS" ]]; then
-        print_warn "跨 OS 构建: 产物无法在本机运行，且目标 OS 系统依赖不会被安装"
-    elif is_cross_arch; then
-        print_info "跨架构编译: ${HOST_GOARCH} → ${TARGET_GOARCH} (同 OS，图标等纯图像步骤照常执行)"
-    fi
-    print_ok "环境检查通过"
-}
+build_impl() {
+  local ldflags="$1"
+  local bin_path cgo_enabled=1 tags="$BUILD_TAGS"
+  bin_path=$(get_build_binary)
+  mkdir -p "$BUILD_DIR"
 
-step_deps() {
-    print_banner "Go 依赖"
-    cd "${PROJECT_ROOT}"
-    print_step "go mod download ..."
-    if go mod download; then print_ok "Go 依赖下载成功"
-    else print_fail "Go 依赖下载失败"; fail "deps"; return 1; fi
-    print_step "go mod verify ..."
-    if go mod verify; then print_ok "Go 依赖校验通过"
-    else print_fail "Go 依赖校验失败"; fail "deps"; return 1; fi
-}
-
-step_install_bin() {
-    print_banner "三方二进制工具安装"
-    if [[ ! -f "$INSTALL_BIN_SCRIPT" ]]; then
-        print_fail "安装脚本不存在: $INSTALL_BIN_SCRIPT"
-        fail "install-bin"; return 1
-    fi
-    detect_platform
-    # 未指定目标平台时，默认当前宿主平台 (避免 BIN_DIR 未初始化)
-    local args=("--platform=${TARGET_GOOS}/${TARGET_GOARCH}")
-    if [[ ${#PASSTHROUGH_ARGS[@]} -gt 0 ]]; then
-        args=("${PASSTHROUGH_ARGS[@]}")
-        [[ "${args[*]:-}" == *--platform* ]] || args+=("--platform=${TARGET_GOOS}/${TARGET_GOARCH}")
-    fi
-    print_step "委托给 install-bin.sh ${args[*]} ..."
-    if bash "$INSTALL_BIN_SCRIPT" "${args[@]}"; then
-        print_ok "安装完成"
-    else
-        print_warn "部分工具安装失败，请查看上方日志"
-        fail "install-bin"; return 1
-    fi
-}
-
-step_test() {
-    print_banner "单元测试"
-    [[ ! -d "$TESTS_DIR" ]] && { print_fail "tests/ 目录不存在"; fail "test"; return 1; }
-    local tmp_cover
-    tmp_cover="$(mktemp -t formatter_cover_XXXXXX.out)"
-    # 无论成功失败，确保退出时清理文件
-    trap "rm -f '$tmp_cover'" EXIT
-    cd "${PROJECT_ROOT}"
-    print_step "go test -cover ./tests/..."
-    if go test -coverpkg=./src/... -coverprofile="$tmp_cover" -covermode=atomic ./tests/... 2>&1; then
-        print_ok "全部测试通过"
-        if [[ -s "$tmp_cover" ]]; then
-            local total_coverage
-            total_coverage=$(go tool cover -func="$tmp_cover" | tail -n 1 | awk '{print $NF}')
-            print_info "总覆盖率: ${total_coverage:-N/A}"
+  case "$HOST_OS" in
+    linux)
+      # Linux 桌面构建需 GTK3 + WebKit2GTK；cgo 标志由源码内 `#cgo pkg-config:` 自行解析
+      # （跨 OS 构建已被母版 cross_os_guard 早拦，此处只校验依赖是否就绪）
+      [ -n "$WEBKIT_PC" ] || resolve_webkit_variant || true
+      if [ -z "$WEBKIT_PC" ] || ! pkg-config --exists gtk+-3.0 "$WEBKIT_PC" 2>/dev/null; then
+        log_error "Linux 桌面构建需要 GTK3 与 ${WEBKIT_PC:-WebKit2GTK} 开发库（去掉 --skip-deps 可自动安装）"
+      fi
+      [ -n "$WEBKIT_TAG" ] && tags="${tags},${WEBKIT_TAG}"
+      log_info "WebKit: ${WEBKIT_PC}${WEBKIT_TAG:+ (build tag: ${WEBKIT_TAG})}"
+      ;;
+    darwin)
+      # Wails 在 macOS 需 Cocoa/WebKit + UniformTypeIdentifiers 框架（CGO）
+      export CGO_LDFLAGS="${CGO_LDFLAGS:-} -framework UniformTypeIdentifiers"
+      # darwin 跨架构编译（amd64↔arm64）需给 clang 指定 target triple
+      if is_cross_arch; then
+        local target=""
+        case "$HOST_ARCH" in
+          amd64) target="x86_64-apple-darwin" ;;
+          arm64) target="arm64-apple-darwin" ;;
+        esac
+        if [ -n "$target" ]; then
+          export CGO_CFLAGS="${CGO_CFLAGS:-} -target ${target}"
+          export CGO_LDFLAGS="${CGO_LDFLAGS:-} -target ${target}"
+          log_info "交叉编译目标: ${target}"
         fi
-    else
-        print_fail "测试失败"; fail "test"; return 1
-    fi
-    trap - EXIT # 测试成功且执行完毕后解除trap并手动清理
-    rm -f "$tmp_cover"
+      fi
+      log_info "最低部署版本: macOS ${MACOS_MIN_VERSION}"
+      ;;
+    windows)
+      # go-webview2 自带 WebView2Loader，纯 Go 链接，不需要 C 工具链（MinGW）
+      cgo_enabled=0
+      ;;
+  esac
+
+  log_info "Go 依赖 download / verify ..."
+  run go mod download
+  run go mod verify
+
+  log_info "go build (-tags ${tags}, CGO_ENABLED=${cgo_enabled}) → ${bin_path#$PROJECT_DIR/}"
+  # shellcheck disable=SC2086
+  run env CGO_ENABLED="$cgo_enabled" GOOS="$HOST_OS" GOARCH="$HOST_ARCH" \
+    go build -trimpath -tags "$tags" -ldflags "$ldflags" -o "$bin_path" ./src/
+
+  if $DRY_RUN; then return 0; fi
+  [ -f "$bin_path" ] || log_error "编译产物不存在: $bin_path"
+  log_success "二进制构建完成 ($(du -h "$bin_path" | cut -f1))"
 }
 
-# =============================================================================
-# 编译参数组装 (CGO / build tags / 平台特定 flags)
-# =============================================================================
-BUILD_TAGS="desktop,production"
-BUILD_CGO=1
-setup_build_env() {
-    case "$TARGET_GOOS" in
-        linux)
-            # Linux 桌面构建需要 GTK3 + WebKit2GTK (Wails v2 依赖)；cgo 标志由
-            # 源码内的 `#cgo pkg-config:` 指令自行解析，无需手动注入
-            if [[ -z "$WEBKIT_PC" ]]; then resolve_webkit_variant || true; fi
-            if [[ -z "$WEBKIT_PC" ]] || ! pkg-config --exists gtk+-3.0 "$WEBKIT_PC" 2>/dev/null; then
-                print_fail "Linux 桌面构建需要 GTK3 与 ${WEBKIT_PC:-WebKit2GTK} 开发库"
-                print_info "  去掉 --skip-deps 可让脚本自动安装，或手动执行:"
-                print_info "    sudo apt-get install pkg-config build-essential libgtk-3-dev libwebkit2gtk-4.1-dev"
-                return 1
-            fi
-            [[ -n "$WEBKIT_TAG" ]] && BUILD_TAGS="${BUILD_TAGS},${WEBKIT_TAG}"
-            print_info "  WebKit: ${WEBKIT_PC}${WEBKIT_TAG:+ (build tag: ${WEBKIT_TAG})}"
-            ;;
-        darwin)
-            # Wails 在 macOS 需要 Cocoa/WebKit + UniformTypeIdentifiers 框架 (CGO)
-            export MACOSX_DEPLOYMENT_TARGET="$MACOS_MIN_VERSION"
-            export CGO_CFLAGS="${CGO_CFLAGS:-} -mmacosx-version-min=${MACOS_MIN_VERSION}"
-            export CGO_LDFLAGS="${CGO_LDFLAGS:-} -framework UniformTypeIdentifiers -mmacosx-version-min=${MACOS_MIN_VERSION}"
-            # darwin 跨架构编译 (amd64↔arm64) 需指定 clang 目标 triple
-            if is_cross_arch; then
-                local darwin_target=""
-                case "$TARGET_GOARCH" in
-                    amd64) darwin_target="x86_64-apple-darwin" ;;
-                    arm64) darwin_target="arm64-apple-darwin" ;;
-                esac
-                if [[ -n "$darwin_target" ]]; then
-                    export CGO_CFLAGS="${CGO_CFLAGS} -target ${darwin_target}"
-                    export CGO_LDFLAGS="${CGO_LDFLAGS} -target ${darwin_target}"
-                    print_info "  交叉编译目标: ${darwin_target}"
-                fi
-            fi
-            print_info "  最低部署版本: macOS ${MACOS_MIN_VERSION}"
-            ;;
-        windows)
-            # go-webview2 自带 WebView2Loader，纯 Go 链接，不需要 C 工具链 (MinGW)
-            BUILD_CGO=0
-            ;;
-    esac
-    return 0
-}
-
-# =============================================================================
-# 构建前序步骤: Go 依赖 / 编译 / 下载待内嵌工具
-# =============================================================================
-build_go_binary() {
-    local ext=""
-    [[ "$TARGET_GOOS" == "windows" ]] && ext=".exe"
-    BIN_NAME="${PROJECT_NAME}_${TARGET_GOOS}_${TARGET_GOARCH}${ext}"
-    BIN_PATH="${BUILD_DIR}/${BIN_NAME}"
-
-    print_step "go build (${BUILD_TAGS}, CGO_ENABLED=${BUILD_CGO}) → ${BIN_NAME}"
-    if CGO_ENABLED="$BUILD_CGO" GOOS="$TARGET_GOOS" GOARCH="$TARGET_GOARCH" \
-        go build -trimpath -tags "${BUILD_TAGS}" -ldflags="-s -w" -o "$BIN_PATH" ./src/; then
-        local size
-        size=$(du -h "$BIN_PATH" | cut -f1)
-        print_ok "二进制构建成功: ${BIN_NAME} (${size})"
-    else
-        print_fail "二进制构建失败 (${TARGET_GOOS}/${TARGET_GOARCH})"
-        fail "build"; return 1
-    fi
-    # macOS: 二进制必须签名才能加载 (arm64 强制)，补 ad-hoc 签名
-    [[ "$TARGET_GOOS" == "darwin" ]] && codesign_adhoc "$BIN_PATH"
-    return 0
-}
-
-# download_bundled_tools 下载随 App 分发的独立二进制到 data/bin/{os}/{arch}/
-# 必须始终执行 (而非“目录非空则跳过”)：源码树中只提交了 preset 包装脚本，
-# download 类工具需在构建时拉取；install-bin.sh 自身会跳过已安装的工具 (幂等)
+# download_bundled_tools 下载随 App 分发的独立二进制到 data/bin/<os>/<arch>/。
+# 必须每次执行（而非目录非空即跳过）：源码树只提交了 preset 包装脚本，
+# download 类工具需构建时拉取；install-bin.sh 自身会跳过已安装工具（幂等）
 download_bundled_tools() {
-    print_step "检查并下载随 App 分发的独立二进制工具..."
-    if [[ ! -f "$INSTALL_BIN_SCRIPT" ]]; then
-        print_warn "install-bin.sh 不存在，跳过工具下载"
-        return 0
-    fi
-    # --bundled-only: 仅处理 download 类工具，跳过 source=install (如 rubocop 的 gem install，
-    # 不随 App 分发，在构建机器上安装也没有意义)
-    if bash "$INSTALL_BIN_SCRIPT" --platform="${TARGET_GOOS}/${TARGET_GOARCH}" \
-            --bundled-only --yes 2>&1 | sed 's/^/    /'; then
-        print_ok "工具安装/校验完成"
-    else
-        print_warn "部分工具安装失败 (可手动运行: ./scripts/install-bin.sh --proxy)"
-    fi
+  [ -f "$INSTALL_BIN_SCRIPT" ] || { log_warn "install-bin.sh 不存在，跳过工具下载"; return 0; }
+  log_info "检查并下载随 App 分发的独立二进制工具（${HOST_OS}/${HOST_ARCH}）..."
+  # --bundled-only: 仅处理 download 类工具，跳过 source=install（如 rubocop 的 gem install，
+  # 不随 App 分发，在构建机上安装也没有意义）
+  run bash "$INSTALL_BIN_SCRIPT" "--platform=${HOST_OS}/${HOST_ARCH}" --bundled-only --yes
 }
 
-# embed_tools <目标目录>: 将 data/bin/{os}/{arch} 内容 + BIN_ROOT 跨平台文件 (JAR 等) 拷入发布包
+# embed_tools <目标目录>：平台特定工具 + 跨平台文件（JAR 等）拷入发布包
 embed_tools() {
-    local dest="$1"
-    local has_platform=false has_cross=false
-    dir_has_files "$BIN_DIR" && has_platform=true
-    dir_has_files "$BIN_ROOT" && has_cross=true
-    if ! $has_platform && ! $has_cross; then
-        print_warn "bin/ 为空，跳过三方工具内嵌"
-        return 0
-    fi
-    rm -rf "$dest"
-    mkdir -p "$dest"
-    # 平台特定工具 (darwin/amd64/ 等)
-    $has_platform && { cp -R "$BIN_DIR"/* "$dest/" 2>/dev/null || true; }
-    # 跨平台工具 (google-java-format.jar 等，安装时直接放在 bin/ 而非平台子目录)
-    $has_cross && {
-        local f base
-        for f in "$BIN_ROOT"/*; do
-            [[ -f "$f" ]] || continue
-            base="$(basename "$f")"
-            [[ -f "$dest/$base" ]] || cp "$f" "$dest/" 2>/dev/null || true
-        done
-    }
-    local count
-    count=$(find "$dest" -maxdepth 1 -mindepth 1 2>/dev/null | wc -l | tr -d ' ')
-    print_ok "三方工具已内嵌 → ${dest#${PROJECT_ROOT}/}/ (${count} 个)"
+  local dest="$1" src_dir
+  src_dir="$(bin_dir)"
+  local has_platform=false has_cross=false
+  dir_has_files "$src_dir" && has_platform=true
+  dir_has_files "$BIN_ROOT" && has_cross=true
+  if ! $has_platform && ! $has_cross; then
+    log_warn "bin/ 为空，跳过三方工具内嵌"
     return 0
+  fi
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  $has_platform && { cp -R "${src_dir}"/* "$dest/" 2>/dev/null || true; }
+  # 跨平台工具（google-java-format.jar 等，安装时直接放在 bin/ 而非平台子目录）
+  if $has_cross; then
+    local f base
+    for f in "$BIN_ROOT"/*; do
+      [ -f "$f" ] || continue
+      base="$(basename "$f")"
+      [ -f "$dest/$base" ] || cp "$f" "$dest/" 2>/dev/null || true
+    done
+  fi
+  local count
+  count=$(find "$dest" -maxdepth 1 -mindepth 1 2>/dev/null | wc -l | tr -d ' ')
+  log_success "三方工具已内嵌 → ${dest#$PROJECT_DIR/}/ (${count} 个)"
 }
 
-# =============================================================================
-# 产物归档基础名 (三平台统一: Formatter-<版本>-<os>-<arch>)
-# =============================================================================
-artifact_base() { echo "${APP_NAME}-${APP_VERSION}-${TARGET_GOOS}-${TARGET_GOARCH}"; }
-
-# =============================================================================
-# 构建入口: 依赖准备 → 编译参数 → 编译 → 内嵌工具 → 分平台打包
-# =============================================================================
-step_build() {
-    detect_platform
-    print_banner "构建 ${APP_NAME} App (${TARGET_GOOS}/${TARGET_GOARCH})"
-    cd "${PROJECT_ROOT}"
-    mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
-
-    # 1. 系统构建依赖 (Linux: GTK3/WebKit2GTK; macOS: clang/7z; Windows: 无需 C 工具链)
-    if ! step_prepare_deps; then return 1; fi
-
-    # 2. 编译参数 (CGO_ENABLED / build tags / cgo flags)
-    if ! setup_build_env; then fail "build"; return 1; fi
-
-    # 3. Go 依赖
-    print_step "go mod download ..."
-    if go mod download; then print_ok "Go 依赖就绪"
-    else print_fail "Go 依赖下载失败"; fail "build"; return 1; fi
-
-    # 4. 编译二进制
-    if ! build_go_binary; then return 1; fi
-
-    # 5. 三方工具: 下载 download 类 → 内嵌到 build/bin (跨平台文件由 embed_tools 统一处理)
-    download_bundled_tools
-    embed_tools "${BUILD_DIR}/bin"
-
-    # 6. 分平台打包 (三平台均产出可分发的 App 包)
-    case "$TARGET_GOOS" in
-        darwin)  package_macos ;;
-        linux)   package_linux ;;
-        windows) package_windows ;;
-        *)       print_fail "未知目标平台: ${TARGET_GOOS}"; fail "package"; return 1 ;;
-    esac
+hook_post_build() {
+  download_bundled_tools
+  if $DRY_RUN; then
+    log_warn "[dry-run] embed_tools → $BUILD_DIR/bin"
+    return 0
+  fi
+  embed_tools "$BUILD_DIR/bin"
 }
 
-# =============================================================================
-# macOS: .app bundle + ad-hoc 签名 + 7z (回退 zip)
-# =============================================================================
+# ============================================================
+# 分平台打包（覆盖母版 package_platform）
+# ============================================================
+package_platform() {
+  if $DRY_RUN; then
+    log_warn "[dry-run] 装配并归档 ${HOST_OS}/${HOST_ARCH} 产物 → release/ ($(artifact_base))"
+    return 0
+  fi
+  case "$HOST_OS" in
+    darwin)  package_macos ;;
+    linux)   package_linux ;;
+    windows) package_windows ;;
+    *)       log_error "未知目标平台: $HOST_OS" ;;
+  esac
+}
+
+# macOS: .app bundle（icns + 内嵌工具 + Info.plist）→ DMG（回退 7z / zip）
 package_macos() {
-    print_step "打包 macOS .app ..."
-    local app_dir="${BUILD_DIR}/${APP_NAME}.app"
-    local contents_dir="${app_dir}/Contents"
-    local macos_dir="${contents_dir}/MacOS"
-    local resources_dir="${contents_dir}/Resources"
+  local app_dir contents_dir macos_dir resources_dir bin_path
+  app_dir=$(get_app_bundle)
+  contents_dir="${app_dir}/Contents"
+  macos_dir="${contents_dir}/MacOS"
+  resources_dir="${contents_dir}/Resources"
+  bin_path=$(get_build_binary)
 
-    rm -rf "$app_dir"
-    mkdir -p "$macos_dir" "$resources_dir"
+  log_info "打包 macOS .app ..."
+  rm -rf "$app_dir"
+  mkdir -p "$macos_dir" "$resources_dir"
+  cp -f "$bin_path" "${macos_dir}/${APP_NAME}"
+  chmod +x "${macos_dir}/${APP_NAME}"
 
-    cp "$BIN_PATH" "${macos_dir}/${APP_NAME}"
-    chmod +x "${macos_dir}/${APP_NAME}"
+  # 不在 bundle 内落 config.json：默认配置已由 //go:embed data/config.json 编进二进制，
+  # 再拷一份到 Contents/ 只是把运行时写入点引进 codesign 封印范围（写任何文件都会让
+  # 整包签名失效，分发后被 Gatekeeper 判「已损坏，无法打开」）。
+  # App 内改的配置统一落 ~/.formatter/config.json，查找顺序见 src/config/config.go。
 
-    if [[ -f "${DATA_DIR}/config.json" ]]; then
-        cp "${DATA_DIR}/config.json" "${macos_dir}/config.json"
-        print_ok "默认配置已嵌入 MacOS/config.json"
-    fi
+  # 图标生成是纯图像处理（PNG→多尺寸→icns），与目标架构无关，交叉编译时照常执行
+  generate_icns "${resources_dir}/AppIcon.icns" || log_warn "图标生成失败，跳过"
+  embed_tools "${resources_dir}/bin"
+  generate_info_plist "${contents_dir}/Info.plist"
+  log_success ".app 打包完成: ${app_dir#$PROJECT_DIR/}（最低系统版本 ${MACOS_MIN_VERSION}）"
 
-    # 图标生成是纯图像处理 (PNG→多尺寸→icns)，与目标架构无关，交叉编译时同样执行
-    if generate_icns "${resources_dir}/AppIcon.icns"; then
-        print_ok "图标已嵌入 Resources/AppIcon.icns"
-    else
-        print_warn "图标生成失败，跳过"
-    fi
+  # 整包重签：内嵌二进制路径变化后重新签名，降低 Gatekeeper 拦截概率
+  codesign_bundle "$app_dir"
 
-    embed_tools "${resources_dir}/bin"
-
-    generate_info_plist "${contents_dir}/Info.plist"
-    print_ok ".app 打包完成: ${app_dir#${PROJECT_ROOT}/} (最低系统版本 ${MACOS_MIN_VERSION})"
-
-    # 整包 ad-hoc 签名: 内嵌二进制路径变化后重新签名，降低 Gatekeeper 拦截概率
-    codesign_adhoc "$app_dir"
-
-    rm -rf "${RELEASE_DIR}/${APP_NAME}.app"
-    cp -R "$app_dir" "$RELEASE_DIR/"
-    print_ok "已复制到 release/: ${APP_NAME}.app"
-
-    # DMG 为首选分发产物 (拖拽安装)；hdiutil 不可用或生成失败时回退 7z/zip
-    build_dmg_macos "$app_dir" || archive_macos "$app_dir" || return 1
-    print_usage_hint macos
+  # .app 仅留在 build/；release/ 只放成品归档
+  if ! build_dmg_macos "$app_dir"; then
+    archive_macos "$app_dir" || log_error "macOS 归档失败"
+  fi
+  print_usage_hint macos
 }
 
-# =============================================================================
-# macOS DMG 打包 (拖拽安装): 卷内包含 App + Applications 快捷方式，用户将 App
-# 拖到 Applications 即完成安装。hdiutil 会把符号链接写为 Finder 别名，一次直出
-# UDZO，全程不 attach、不做 Finder 定制，打包过程零窗口弹出 (easy_image 验证)
-# =============================================================================
+# DMG（拖拽安装）: 卷内 App + Applications 快捷方式。hdiutil 把符号链接写成 Finder
+# 别名，一次直出 UDZO，全程不 attach、不做 Finder 定制，打包零窗口弹出
 build_dmg_macos() {
-    local app_dir="$1"
-    have hdiutil || { print_warn "hdiutil 不可用，回退 7z/zip 打包"; return 1; }
+  local app_dir="$1"
+  have hdiutil || { log_warn "hdiutil 不可用，回退 7z/zip 打包"; return 1; }
 
-    local dmg_path="${RELEASE_DIR}/$(artifact_base).dmg"
-    rm -f "$dmg_path"
+  local dmg_path="${PROJECT_DIR}/release/$(artifact_base).dmg"
+  rm -f "$dmg_path"
+  mkdir -p "${PROJECT_DIR}/release"
 
-    # staging 目录: App + Applications 符号链接 (拖到此处即安装)
-    local staging
-    staging="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}_dmg.XXXXXX")" || {
-        print_warn "mktemp 失败，回退 7z/zip 打包"; return 1; }
+  local staging
+  staging="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}_dmg.XXXXXX")" || {
+    log_warn "mktemp 失败，回退 7z/zip 打包"; return 1; }
+  trap "rm -rf '$staging'" EXIT
 
-    print_step "打包 DMG (拖拽安装): $(basename "$dmg_path") ..."
-    if cp -R "$app_dir" "${staging}/${APP_NAME}.app" && \
-        ln -s /Applications "${staging}/Applications" && \
-        hdiutil create -volname "$APP_NAME" -srcfolder "$staging" -ov -format UDZO "$dmg_path" \
-            >/dev/null 2>&1 && [[ -s "$dmg_path" ]]; then
-        rm -rf "$staging"
-        print_ok "DMG 打包成功: $(basename "$dmg_path") ($(du -h "$dmg_path" | cut -f1))"
-        return 0
+  log_info "打包 DMG（拖拽安装）: $(basename "$dmg_path") ..."
+  # ditto 保真复制（权限位/符号链接/xattr）；暂存副本再校验一次签名，
+  # 坏了宁可告警也不要静默产出「装完打不开」的安装包
+  if ditto "$app_dir" "${staging}/${APP_NAME}.app" &&
+     ln -s /Applications "${staging}/Applications"; then
+    codesign --verify --deep --strict "${staging}/${APP_NAME}.app" >/dev/null 2>&1 \
+      || log_warn "DMG 暂存副本签名校验失败，分发后可能无法打开"
+    if hdiutil create -volname "$APP_NAME" -srcfolder "$staging" -ov -format UDZO "$dmg_path" \
+         >/dev/null 2>&1 && [ -s "$dmg_path" ]; then
+      rm -rf "$staging"
+      trap - EXIT
+      log_success "DMG 打包成功: $(basename "$dmg_path") ($(du -h "$dmg_path" | cut -f1))"
+      log_info "首次打开若提示「无法验证开发者」：右键 → 打开；或执行："
+      log_info "  xattr -dr com.apple.quarantine \"/Applications/${APP_NAME}.app\""
+      return 0
     fi
-
-    rm -rf "$staging"
-    rm -f "$dmg_path"
-    print_warn "DMG 生成失败，回退 7z/zip 打包"
-    return 1
+  fi
+  rm -rf "$staging"
+  trap - EXIT
+  rm -f "$dmg_path"
+  log_warn "DMG 生成失败，回退 7z/zip 打包"
+  return 1
 }
 
-# 归档回退: 7z (最大压缩) → zip (ditto / 7z / PowerShell)，仅在 DMG 生成失败时使用
+# 归档回退: 7z（最大压缩）→ zip（ditto / 7z / PowerShell），仅 DMG 失败时使用
 archive_macos() {
-    local app_dir="$1"
-    local base archive out
-    base="$(artifact_base)"
+  local app_dir="$1" base archive
+  base="$(artifact_base)"
+  # 清理隔离属性，避免归档进 com.apple.quarantine 等扩展属性
+  xattr -cr "$app_dir" 2>/dev/null || true
 
-    # 清理隔离属性，避免 7z/zip 打包进 com.apple.quarantine 等扩展属性
-    xattr -cr "$app_dir" 2>/dev/null || true
-
-    if resolve_sevenzip; then
-        archive="${RELEASE_DIR}/${base}.7z"
-        print_step "打包 7z (最大压缩): ${base}.7z"
-        rm -f "$archive"
-        if (cd "$(dirname "$app_dir")" && \
-                "$SEVENZIP" a -m0=lzma2 -mx=9 -mmt=on "-x!*.DS_Store" "$archive" "$APP_NAME.app" \
-                >/dev/null 2>&1) && [[ -s "$archive" ]]; then
-            print_ok "7z 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
-            return 0
-        fi
-        print_warn "7z 打包失败，回退 zip"
-        rm -f "$archive"
-    else
-        print_warn "未找到 7z (brew install p7zip)，回退 zip 打包"
-    fi
-
-    archive="${RELEASE_DIR}/${base}.zip"
-    print_step "打包 zip: ${base}.zip"
+  if resolve_sevenzip; then
+    archive="${PROJECT_DIR}/release/${base}.7z"
+    log_info "打包 7z（最大压缩）: ${base}.7z"
     rm -f "$archive"
-    # macOS 自带 ditto 能保留 .app 的扩展属性与目录结构
-    if have ditto; then
-        ditto -c -k --keepParent "$app_dir" "$archive" >/dev/null 2>&1 || true
+    if (cd "$(dirname "$app_dir")" &&
+        "$SEVENZIP" a -m0=lzma2 -mx=9 -mmt=on "-x!*.DS_Store" "$archive" "${APP_NAME}.app" \
+        >/dev/null 2>&1) && [ -s "$archive" ]; then
+      log_success "7z 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
+      return 0
     fi
-    [[ -s "$archive" ]] || archive_zip "$archive" "$app_dir" || {
-        print_fail "macOS 归档失败"; fail "package"; return 1; }
-    print_ok "zip 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
-    return 0
+    log_warn "7z 打包失败，回退 zip"
+    rm -f "$archive"
+  else
+    log_warn "未找到 7z（brew install p7zip），回退 zip 打包"
+  fi
+
+  archive="${PROJECT_DIR}/release/${base}.zip"
+  log_info "打包 zip: ${base}.zip"
+  rm -f "$archive"
+  # macOS 自带 ditto 能保留 .app 的扩展属性与目录结构
+  if have ditto; then
+    ditto -c -k --keepParent "$app_dir" "$archive" >/dev/null 2>&1 || true
+  fi
+  [ -s "$archive" ] || archive_zip "$archive" "$app_dir" || return 1
+  log_success "zip 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
 }
 
-# =============================================================================
-# Linux: bin/ + share/{applications,icons} + tools/ + install.sh → tar.gz
-# =============================================================================
+# Linux: bin/ + share/{applications,icons} + install.sh → tar.gz
 package_linux() {
-    print_step "打包 Linux 桌面应用 ..."
-    local stage_root="${BUILD_DIR}/linux_stage"
-    local stage_dir="${stage_root}/${APP_NAME}"
-    rm -rf "$stage_root"
-    mkdir -p "${stage_dir}/bin" \
-             "${stage_dir}/share/applications" \
-             "${stage_dir}/share/icons/hicolor/256x256/apps"
+  local stage_root="${BUILD_DIR}/linux_stage" stage_dir bin_path
+  stage_dir="${stage_root}/${APP_NAME}"
+  bin_path=$(get_build_binary)
 
-    cp "$BIN_PATH" "${stage_dir}/bin/${PROJECT_NAME}"
-    chmod +x "${stage_dir}/bin/${PROJECT_NAME}"
+  log_info "打包 Linux 桌面应用 ..."
+  rm -rf "$stage_root"
+  mkdir -p "${stage_dir}/bin" \
+           "${stage_dir}/share/applications" \
+           "${stage_dir}/share/icons/hicolor/256x256/apps"
 
-    [[ -f "${DATA_DIR}/config.json" ]] && \
-        cp "${DATA_DIR}/config.json" "${stage_dir}/bin/config.json"
+  cp -f "$bin_path" "${stage_dir}/bin/${PROJECT_NAME}"
+  chmod +x "${stage_dir}/bin/${PROJECT_NAME}"
+  [ -f "${DATA_DIR}/config.json" ] && cp -f "${DATA_DIR}/config.json" "${stage_dir}/bin/config.json"
 
-    if [[ -f "$LINUX_DESKTOP" ]]; then
-        cp "$LINUX_DESKTOP" "${stage_dir}/share/applications/"
-        print_ok ".desktop 文件已嵌入"
-    else
-        print_warn "缺少 ${LINUX_DESKTOP#${PROJECT_ROOT}/}，跳过 .desktop"
-    fi
+  if [ -f "$LINUX_DESKTOP" ]; then
+    cp -f "$LINUX_DESKTOP" "${stage_dir}/share/applications/"
+    log_success ".desktop 文件已嵌入"
+  else
+    log_warn "缺少 ${LINUX_DESKTOP#$PROJECT_DIR/}，跳过 .desktop"
+  fi
 
-    local icon_png="${stage_dir}/share/icons/hicolor/256x256/apps/${PROJECT_NAME}.png"
-    if generate_icon_png 256 "$icon_png"; then
-        print_ok "图标已嵌入 (256x256)"
-    else
-        print_warn "图标生成失败，跳过"
-        rm -f "$icon_png"
-    fi
+  local icon_png="${stage_dir}/share/icons/hicolor/256x256/apps/${PROJECT_NAME}.png"
+  if generate_icon_png 256 "$icon_png"; then
+    log_success "图标已嵌入（256x256）"
+  else
+    log_warn "图标生成失败，跳过"
+    rm -f "$icon_png"
+  fi
 
-    embed_tools "${stage_dir}/bin/tools"
+  embed_tools "${stage_dir}/bin/tools"
 
-    cat > "${stage_dir}/install.sh" << 'INSTALL_EOF'
+  cat > "${stage_dir}/install.sh" << 'INSTALL_EOF'
 #!/bin/bash
 # Formatter 桌面应用安装脚本 (Linux)
 set -euo pipefail
@@ -1001,440 +765,153 @@ mkdir -p "$DESKTOP_DIR" "$ICON_DIR"
 sudo ln -sf "$INSTALL_DIR/formatter" /usr/local/bin/formatter 2>/dev/null || true
 echo "安装完成！运行 'formatter' 或从应用菜单启动"
 INSTALL_EOF
-    chmod +x "${stage_dir}/install.sh"
+  chmod +x "${stage_dir}/install.sh"
 
-    local base archive
-    base="$(artifact_base)"
-    archive="${RELEASE_DIR}/${base}.tar.gz"
-    print_step "打包 tar.gz: ${base}.tar.gz"
-    rm -f "$archive"
-    if tar -czf "$archive" -C "$stage_root" "$APP_NAME" 2>/dev/null && [[ -s "$archive" ]]; then
-        print_ok "tar.gz 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
-    else
-        print_fail "tar.gz 打包失败"; fail "package"; rm -rf "$stage_root"; return 1
-    fi
+  local archive="${PROJECT_DIR}/release/$(artifact_base).tar.gz"
+  log_info "打包 tar.gz: $(artifact_base).tar.gz"
+  rm -f "$archive"
+  if tar -czf "$archive" -C "$stage_root" "$APP_NAME" 2>/dev/null && [ -s "$archive" ]; then
+    log_success "tar.gz 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
+  else
     rm -rf "$stage_root"
-
-    print_usage_hint linux
+    log_error "tar.gz 打包失败"
+  fi
+  rm -rf "$stage_root"
+  print_usage_hint linux
 }
 
-# =============================================================================
 # Windows: Formatter.exe + config.json + icon.ico + tools/ → zip
-# =============================================================================
 package_windows() {
-    print_step "打包 Windows 桌面应用 ..."
-    local stage_root="${BUILD_DIR}/win_stage"
-    local stage_dir="${stage_root}/${APP_NAME}"
-    rm -rf "$stage_root"
-    mkdir -p "$stage_dir"
+  local stage_root="${BUILD_DIR}/win_stage" stage_dir bin_path
+  stage_dir="${stage_root}/${APP_NAME}"
+  bin_path=$(get_build_binary)
 
-    cp "$BIN_PATH" "${stage_dir}/${APP_NAME}.exe"
+  log_info "打包 Windows 桌面应用 ..."
+  rm -rf "$stage_root"
+  mkdir -p "$stage_dir"
+  cp -f "$bin_path" "${stage_dir}/${APP_NAME}.exe"
+  [ -f "${DATA_DIR}/config.json" ] && cp -f "${DATA_DIR}/config.json" "${stage_dir}/config.json"
 
-    [[ -f "${DATA_DIR}/config.json" ]] && \
-        cp "${DATA_DIR}/config.json" "${stage_dir}/config.json"
+  if generate_ico "${stage_dir}/icon.ico"; then
+    log_success "图标已嵌入（icon.ico）"
+  else
+    rm -f "${stage_dir}/icon.ico"
+  fi
 
-    if generate_ico "${stage_dir}/icon.ico"; then
-        print_ok "图标已嵌入 (icon.ico)"
-    else
-        rm -f "${stage_dir}/icon.ico"
-    fi
+  embed_tools "${stage_dir}/tools"
 
-    embed_tools "${stage_dir}/tools"
-
-    local base archive
-    base="$(artifact_base)"
-    archive="${RELEASE_DIR}/${base}.zip"
-    print_step "打包 zip: ${base}.zip"
-    if archive_zip "$archive" "$stage_dir"; then
-        print_ok "zip 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
-    else
-        print_fail "zip 打包失败"; fail "package"; rm -rf "$stage_root"; return 1
-    fi
-    rm -rf "$stage_root"
-
-    print_usage_hint windows
+  local archive="${PROJECT_DIR}/release/$(artifact_base).zip"
+  mkdir -p "${PROJECT_DIR}/release"
+  log_info "打包 zip: $(artifact_base).zip"
+  archive_zip "$archive" "$stage_dir" || { rm -rf "$stage_root"; log_error "zip 打包失败"; }
+  log_success "zip 打包成功: $(basename "$archive") ($(du -h "$archive" | cut -f1))"
+  rm -rf "$stage_root"
+  print_usage_hint windows
 }
 
-# =============================================================================
-# 使用方式提示 (路径相对解压目录，Linux/Windows 产物解压后才存在)
-# =============================================================================
+# 产物使用方式提示（Linux/Windows 路径相对解压目录）
 print_usage_hint() {
-    local platform="$1"
-    printf "\n  %b使用方式:%b\n" "$CYAN" "$NC"
-    case "$platform" in
-        macos)
-            printf "    %b拖拽安装:%b 双击挂载 %s/$(artifact_base).dmg，将 %s.app 拖入 Applications\n" \
-                "$BOLD" "$NC" "$RELEASE_DIR" "$APP_NAME"
-            printf "    %b桌面应用:%b open %s/%s.app\n" "$BOLD" "$NC" "$RELEASE_DIR" "$APP_NAME"
-            printf "    %bCLI 调用:%b %s/${APP_NAME} format main.go\n" "$BOLD" "$NC" \
-                "${RELEASE_DIR}/${APP_NAME}.app/Contents/MacOS"
-            printf "    %bWeb UI:%b   %s/${APP_NAME} serve\n" "$BOLD" "$NC" \
-                "${RELEASE_DIR}/${APP_NAME}.app/Contents/MacOS"
-            ;;
-        linux)
-            printf "    %b桌面应用:%b 解压后运行 %s/install.sh，或直接执行 %s/bin/%s\n" \
-                "$BOLD" "$NC" "$APP_NAME" "$APP_NAME" "$PROJECT_NAME"
-            printf "    %bCLI 调用:%b %s/bin/%s format main.go\n" "$BOLD" "$NC" "$APP_NAME" "$PROJECT_NAME"
-            printf "    %bWeb UI:%b   %s/bin/%s serve\n" "$BOLD" "$NC" "$APP_NAME" "$PROJECT_NAME"
-            ;;
-        windows)
-            printf "    %b桌面应用:%b 解压后运行 %s/%s.exe\n" "$BOLD" "$NC" "$APP_NAME" "$APP_NAME"
-            printf "    %bCLI 调用:%b %s/%s.exe format main.go\n" "$BOLD" "$NC" "$APP_NAME" "$APP_NAME"
-            printf "    %bWeb UI:%b   %s/%s.exe serve\n" "$BOLD" "$NC" "$APP_NAME" "$APP_NAME"
-            ;;
+  case "$1" in
+    macos)
+      local app_dir; app_dir=$(get_app_bundle)
+      log_info "拖拽安装: 双击挂载 release/$(artifact_base).dmg，将 ${APP_NAME}.app 拖入 Applications"
+      log_info "本地调试: open ${app_dir#$PROJECT_DIR/}"
+      log_info "CLI 调用: ${app_dir}/Contents/MacOS/${APP_NAME} format main.go"
+      log_info "Web UI:   ${app_dir}/Contents/MacOS/${APP_NAME} serve"
+      ;;
+    linux)
+      log_info "桌面应用: 解压后运行 ${APP_NAME}/install.sh，或直接执行 ${APP_NAME}/bin/${PROJECT_NAME}"
+      log_info "CLI 调用: ${APP_NAME}/bin/${PROJECT_NAME} format main.go"
+      log_info "Web UI:   ${APP_NAME}/bin/${PROJECT_NAME} serve"
+      ;;
+    windows)
+      log_info "桌面应用: 解压后运行 ${APP_NAME}/${APP_NAME}.exe"
+      log_info "CLI 调用: ${APP_NAME}/${APP_NAME}.exe format main.go"
+      log_info "Web UI:   ${APP_NAME}/${APP_NAME}.exe serve"
+      ;;
+  esac
+}
+
+# ============================================================
+# 项目专属命令
+# ============================================================
+# install-bin: 下载/校验随 App 分发的三方二进制工具（委托 install-bin.sh）
+cmd_install_bin() {
+  check_go
+  local args=("--platform=${HOST_OS}/${HOST_ARCH}")
+  if [ $# -gt 0 ]; then
+    args=("$@")
+    case "${args[*]}" in
+      *--platform*) ;;
+      *) args+=("--platform=${HOST_OS}/${HOST_ARCH}") ;;
     esac
-    printf "\n"
+  fi
+  [ -f "$INSTALL_BIN_SCRIPT" ] || log_error "安装脚本不存在: $INSTALL_BIN_SCRIPT"
+  log_info "委托给 install-bin.sh ${args[*]} ..."
+  run bash "$INSTALL_BIN_SCRIPT" "${args[@]}" || log_warn "部分工具安装失败，请查看上方日志"
 }
 
-step_clean() {
-    print_banner "清理构建产物"
-    local cleaned=0
-    for dir in "$BUILD_DIR" "$RELEASE_DIR" "${PROJECT_ROOT}/coverage" "${PROJECT_ROOT}/.downloads"; do
-        if [[ -d "$dir" ]]; then
-            rm -rf "$dir"
-            print_ok "删除 $(basename "$dir")/"
-            cleaned=$((cleaned + 1))
-        fi
-    done
-    find "${PROJECT_ROOT}" -maxdepth 2 \( -name "*.test" -o -name "*.out" \) -delete 2>/dev/null || true
-    if [[ $cleaned -gt 0 ]]; then
-        print_ok "清理完成，共 ${cleaned} 项"
-    else
-        print_ok "项目已干净"
-    fi
+# server: 构建后以 serve 命令前台启动 Web Server（同一二进制的服务端形态）
+cmd_server() {
+  cmd_build
+  local bin_path
+  bin_path=$(get_build_binary)
+  if $DRY_RUN; then
+    log_warn "[dry-run] $bin_path serve $*"
+    return 0
+  fi
+  [ -x "$bin_path" ] || log_error "未找到可执行文件: $bin_path"
+  log_info "启动 Web Server: ${bin_path#$PROJECT_DIR/} serve $*（Ctrl+C 停止）"
+  set +e
+  if [ $# -gt 0 ]; then
+    "$bin_path" serve "$@"
+  else
+    "$bin_path" serve
+  fi
+  set -e
 }
 
-step_report() {
-    local total=${#FAILED_STEPS[@]} exit_code=0
-    printf "\n%b═══════════════════════════════════════════════════════════════%b\n" "$CYAN" "$NC"
-    if [[ $total -eq 0 ]]; then
-        printf "  %b%b✓ 所有步骤执行成功%b\n" "$GREEN" "$BOLD" "$NC"
-    else
-        exit_code=1
-        printf "  %b%b✗ %d 个步骤失败:%b\n" "$RED" "$BOLD" "$total" "$NC"
-        for s in "${FAILED_STEPS[@]}"; do 
-            printf "    %b• %s%b\n" "$RED" "$s" "$NC"
-        done
-    fi
-    printf "\n  %b构建产物 (build/):%b\n" "$CYAN" "$NC"
-    if [[ -d "$BUILD_DIR" ]]; then
-        while IFS= read -r item; do
-            if [[ -d "$item" ]]; then
-                local sz; sz=$(du -sh "$item" 2>/dev/null | cut -f1)
-                printf "    %s/ (%s)\n" "$(basename "$item")" "$sz"
-            else
-                local sz; sz=$(du -h "$item" 2>/dev/null | cut -f1)
-                printf "    %s (%s)\n" "$(basename "$item")" "$sz"
-            fi
-        done < <(find "$BUILD_DIR" -maxdepth 1 -mindepth 1 2>/dev/null)
-    else
-        printf "    (空)\n"
-    fi
-    printf "  %b发布产物 (release/):%b\n" "$CYAN" "$NC"
-    if [[ -d "$RELEASE_DIR" ]]; then
-        while IFS= read -r item; do
-            if [[ -d "$item" ]]; then
-                local sz; sz=$(du -sh "$item" 2>/dev/null | cut -f1)
-                printf "    %s/ (%s)\n" "$(basename "$item")" "$sz"
-            else
-                local sz; sz=$(du -h "$item" 2>/dev/null | cut -f1)
-                printf "    %s (%s)\n" "$(basename "$item")" "$sz"
-            fi
-        done < <(find "$RELEASE_DIR" -maxdepth 1 -mindepth 1 2>/dev/null)
-    else
-        printf "    (空)\n"
-    fi
-    printf "%b═══════════════════════════════════════════════════════════════%b\n\n" "$CYAN" "$NC"
-    return $exit_code
+# test: 覆盖率统计以 src/ 为被测面（tests/ 为外置测试包）
+cmd_test() {
+  check_go
+  [ -d "${PROJECT_DIR}/tests" ] || log_error "tests/ 目录不存在"
+  local cover rc
+  cover="$(mktemp -t formatter_cover_XXXXXX.out)"
+  if $DRY_RUN; then
+    log_warn "[dry-run] go test -coverpkg=./src/... -coverprofile=$cover -covermode=atomic ./tests/..."
+    rm -f "$cover"
+    return 0
+  fi
+  log_info "运行 Go 单元测试（覆盖率: ./src/...）..."
+  set +e
+  go test -coverpkg=./src/... -coverprofile="$cover" -covermode=atomic ./tests/...
+  rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    rm -f "$cover"
+    log_error "测试失败（exit=$rc）"
+  fi
+  if [ -s "$cover" ]; then
+    log_success "全部测试通过，总覆盖率: $(go tool cover -func="$cover" | tail -1 | awk '{print $NF}')"
+  else
+    log_success "全部测试通过"
+  fi
+  rm -f "$cover"
 }
 
-# =============================================================================
-# 帮助与菜单
-# =============================================================================
-show_help() {
-    local mode="${1:-cli}"
-    detect_platform
-    local cur_platform="${TARGET_GOOS}/${TARGET_GOARCH}"
+show_help_extra() {
+  cat <<'EOF'
 
-    if [[ "$mode" == "menu" ]]; then
-        cat <<MENU
-
-${CYAN}╔══════════════════════════════════════════════════════════════╗
-║              Formatter 工具脚本 (v${APP_VERSION})                         ║
-╚══════════════════════════════════════════════════════════════╝${NC}
-
-  当前平台:  ${cur_platform}
-  Go 版本:   $(go version 2>/dev/null | awk '{print $3}')
-
-  ${BOLD}请选择操作 (数字或英文首字母):${NC}
-
-    1) build / b        构建当前平台 App (自动安装构建依赖 + 打包)
-    2) install-bin / i  安装三方二进制工具到 bin/
-    3) test / t         运行单元测试
-    4) clean / c        清理构建产物
-    5) run / r          编译并运行 App (构建后启动桌面应用) [默认]
-    6) server / s       编译并运行 Web Server (serve 命令，前台运行)
-    0) exit / q         退出
-
-MENU
-        printf "  %b请输入选项:%b " "$CYAN" "$NC"
-    else
-        cat <<CLI
-${BOLD}用法:${NC} $0 [command] [options]
-
-${BOLD}命令:${NC}
-  build / b        构建桌面 App (自动准备系统依赖 → 编译 → 内嵌工具 → 打包)
-  install-bin / i  下载三方二进制工具到 data/bin/ (委托给 install-bin.sh)
-  test / t         运行单元测试
-  clean / c        清理构建产物
-  run / r          编译并运行 App (构建后启动桌面应用)
-  server / s       编译并运行 Web Server (serve 命令，前台运行)
-
-${BOLD}选项:${NC}
-  --platform=OS/ARCH   目标平台 (darwin/amd64 darwin/arm64 linux/amd64 windows/amd64)
-  --skip-deps          跳过系统构建依赖自动安装 (环境已就绪时用)
-  --tool=<name>        install-bin 仅下载指定工具
-  --all                install-bin 含运行时环境检测
-  --addr=<addr>        server 监听地址 (如 :8080)
-  --no-open            server 不自动打开浏览器
-  --browser            server 使用默认浏览器打开
-
-${BOLD}说明:${NC}
-  - 菜单支持数字 (1-6) 或英文首字母 (b/i/t/c/r/s) 匹配操作
-  - 所有构建逻辑 (依赖安装 / CGO / 图标 / 打包) 均在本脚本实现，
-    .github/workflows/release.yml 仅做 runner 引导与产物上传
-  - macOS: .app bundle (icns + 内嵌工具) + ad-hoc 签名 → .dmg (卷内 App + Applications
-    快捷方式，拖拽安装；hdiutil 不可用时回退 .7z/.zip)
-    CGO_ENABLED=1 + -tags desktop,production；跨架构自动加 clang -target
-  - Linux: tar.gz (bin/ + .desktop + 图标 + tools/ + install.sh)
-    自动 apt/dnf/pacman/zypper 安装 GTK3 + WebKit2GTK (4.0/4.1 自动选择 build tag)
-  - Windows: zip (Formatter/ + Formatter.exe + config.json + icon.ico + tools/)
-    CGO_ENABLED=0 (go-webview2 自带 WebView2Loader)，无需 MinGW/gcc
-  - 三平台产物命名统一: Formatter-<版本>-<os>-<arch>.<ext>，输出到 release/
-  - install-bin 命令委托给 scripts/install-bin.sh 脚本执行
-  - server 以前台方式运行，按 Ctrl+C 停止
-
-${BOLD}示例:${NC}
-  $0                    # 交互式菜单
-  $0 build              # 构建当前平台 App
-  $0 b                  # 构建 App (简写)
-  $0 b --platform=darwin/arm64   # 指定目标平台构建
-  $0 b --skip-deps      # 依赖已就绪，跳过自动安装
-  $0 run                # 编译并运行 App
-  $0 server             # 编译并运行 Web Server
-  $0 s --addr=:8080     # 指定端口运行 Server (简写)
-  $0 install-bin        # 安装全部独立二进制
-  $0 i --tool=stylua    # 仅安装 stylua (简写)
-  $0 i --all            # 含运行时环境检测
-CLI
-    fi
-}
-
-prompt_platform() {
-    local default_p="${TARGET_GOOS:-$(go env GOOS)}/${TARGET_GOARCH:-$(go env GOARCH)}"
-    printf "\n  %b目标平台%b [默认: %s]: " "$CYAN" "$NC" "$default_p"
-    read -r input
-    if [[ -n "$input" ]]; then
-        TARGET_GOOS="${input%%/*}"
-        TARGET_GOARCH="${input##*/}"
-    else
-        TARGET_GOOS="${default_p%%/*}"
-        TARGET_GOARCH="${default_p##*/}"
-    fi
-}
-
-# =============================================================================
-# 菜单选项解析 (支持数字或英文首字母)
-# =============================================================================
-resolve_menu_choice() {
-    local choice="$1"
-    case "$(echo "$choice" | tr '[:upper:]' '[:lower:]')" in
-        1|b|build)       echo "build" ;;
-        2|i|install-bin) echo "install-bin" ;;
-        3|t|test)        echo "test" ;;
-        4|c|clean)       echo "clean" ;;
-        5|r|run)         echo "run" ;;
-        6|s|server)      echo "server" ;;
-        0|q|exit|quit)   echo "exit" ;;
-        *)               echo "" ;;
-    esac
-}
-
-# =============================================================================
-# 编译并运行 App
-# =============================================================================
-step_run() {
-    local interactive="${1:-false}"
-    print_banner "编译并运行 App"
-    [[ "$interactive" == "true" && -z "$TARGET_GOOS" ]] && prompt_platform
-
-    if ! step_check_env; then step_report; return 1; fi
-    if ! step_build; then step_report; return 1; fi
-
-    # 启动 App (macOS 优先用 .app bundle，其他平台直接跑二进制)
-    local app_path="${RELEASE_DIR}/${APP_NAME}.app"
-    if [[ "$TARGET_GOOS" == "darwin" && -d "$app_path" ]]; then
-        print_step "启动 macOS App: ${app_path}"
-        if open "$app_path" 2>/dev/null; then
-            print_ok "App 已启动"
-        else
-            print_fail "App 启动失败"
-            fail "run"
-        fi
-    else
-        local bin_path="${BIN_PATH:-${BUILD_DIR}/${PROJECT_NAME}_${TARGET_GOOS}_${TARGET_GOARCH}}"
-        [[ "$TARGET_GOOS" == "windows" ]] && bin_path="${bin_path}.exe"
-        if [[ -f "$bin_path" ]]; then
-            print_step "启动二进制: ${bin_path}"
-            chmod +x "$bin_path" 2>/dev/null || true
-            "$bin_path" >/dev/null 2>&1 &
-            local pid=$!
-            if kill -0 "$pid" 2>/dev/null; then
-                print_ok "App 已启动 (PID: ${pid})"
-            else
-                print_fail "二进制启动失败"
-                fail "run"
-            fi
-        else
-            print_fail "未找到可执行文件: ${bin_path}"
-            fail "run"
-        fi
-    fi
-    step_report
-}
-
-# =============================================================================
-# 编译并运行 Web Server (serve 命令)
-# =============================================================================
-step_server() {
-    local interactive="${1:-false}"
-    print_banner "编译并运行 Web Server"
-    [[ "$interactive" == "true" && -z "$TARGET_GOOS" ]] && prompt_platform
-
-    if ! step_check_env; then step_report; return 1; fi
-    if ! step_build; then step_report; return 1; fi
-
-    # 使用原始二进制 (非 .app)，以 serve 命令启动 Web Server
-    local bin_path="${BIN_PATH:-${BUILD_DIR}/${PROJECT_NAME}_${TARGET_GOOS}_${TARGET_GOARCH}}"
-    [[ "$TARGET_GOOS" == "windows" ]] && bin_path="${bin_path}.exe"
-    if [[ ! -f "$bin_path" ]]; then
-        print_fail "未找到可执行文件: ${bin_path}"
-        fail "server"; step_report; return 1
-    fi
-
-    chmod +x "$bin_path" 2>/dev/null || true
-    # 前台运行 server，用户可 Ctrl+C 退出
-    # PASSTHROUGH_ARGS 可包含 --addr / --no-open / --browser 等参数
-    print_step "启动 Web Server: ${bin_path} serve ${PASSTHROUGH_ARGS[*]:-}"
-    printf "  %b按 Ctrl+C 停止服务器%b\n\n" "$DIM" "$NC"
-    # bash 3.2 + set -u 下空数组展开会报 unbound variable，先判长度
-    if [[ ${#PASSTHROUGH_ARGS[@]} -gt 0 ]]; then
-        "$bin_path" serve "${PASSTHROUGH_ARGS[@]}"
-    else
-        "$bin_path" serve
-    fi
-}
-
-# =============================================================================
-# 命令调度
-# =============================================================================
-dispatch_cmd() {
-    local cmd="$1"
-    local interactive="${2:-false}"
-
-    case "$cmd" in
-        build)
-            [[ "$interactive" == "true" && -z "$TARGET_GOOS" ]] && prompt_platform
-            step_check_env && step_build; step_report ;;
-        install-bin)
-            [[ "$interactive" == "true" ]] && PASSTHROUGH_ARGS+=("--interactive")
-            step_check_env >/dev/null 2>&1 || true
-            step_install_bin; step_report ;;
-        test)
-            step_check_env && step_deps && step_test; step_report ;;
-        clean)
-            step_clean; step_report ;;
-        run)
-            step_run "$interactive" ;;
-        server)
-            step_server "$interactive" ;;
-        help|-h|--help)
-            show_help "cli" ;;
-        *)
-            printf "%b错误: 未知命令 '%s'%b\n" "$RED" "$cmd" "$NC"; exit 1 ;;
-    esac
-}
-
-# =============================================================================
-# 主入口
-# =============================================================================
-main() {
-    local cmd=""
-    for a in "$@"; do
-        case "$a" in
-            --platform=*)
-                local p="${a#*=}"
-                TARGET_GOOS="${p%%/*}"; TARGET_GOARCH="${p##*/}" ;;
-            --skip-deps)
-                SKIP_DEPS=true ;;
-            --tool=*)
-                PASSTHROUGH_ARGS+=("$a") ;;
-            --all)
-                PASSTHROUGH_ARGS+=("$a") ;;
-            --addr=*)
-                PASSTHROUGH_ARGS+=("$a") ;;
-            --no-open)
-                PASSTHROUGH_ARGS+=("$a") ;;
-            --browser)
-                PASSTHROUGH_ARGS+=("$a") ;;
-            -h|--help|help)
-                cmd="help" ;;
-            build|b)
-                cmd="build" ;;
-            install-bin|i)
-                cmd="install-bin" ;;
-            test|t)
-                cmd="test" ;;
-            clean|c)
-                cmd="clean" ;;
-            run|r)
-                cmd="run" ;;
-            server|s)
-                cmd="server" ;;
-            "")
-                ;;
-            *)
-                printf "%b未知参数: %s%b\n" "$RED" "$a" "$NC"
-                echo "运行 '$0 help' 查看帮助"
-                exit 1 ;;
-        esac
-    done
-
-    if [[ -z "$cmd" ]]; then
-        while true; do
-            show_help "menu"
-            local choice
-            read -r choice
-            # 空输入默认为 run (编译并运行 App)
-            [[ -z "$choice" ]] && choice="5"
-            local resolved
-            resolved="$(resolve_menu_choice "$choice")"
-            case "$resolved" in
-                build)       dispatch_cmd "build" "true" ;;
-                install-bin) dispatch_cmd "install-bin" "true" ;;
-                test)        dispatch_cmd "test" "true" ;;
-                clean)       dispatch_cmd "clean" "true" ;;
-                run)         dispatch_cmd "run" "true" ;;
-                server)      dispatch_cmd "server" "true" ;;
-                exit)        printf "%b再见%b\n" "$CYAN" "$NC"; exit 0 ;;
-                *)           printf "%b无效选项: %s%b\n" "$RED" "$choice" "$NC"; sleep 1 ;;
-            esac
-            echo ""
-            break
-        done
-    else
-        dispatch_cmd "$cmd" "false"
-    fi
+Formatter 专属说明:
+  - 同一二进制兼作桌面 App / CLI / Web Server，编译入口 go build -tags desktop,production ./src/
+  - 三平台交叉产物由 --platform=<os>/<arch> 指定，CI 四个 job 分别构建：
+      darwin/amd64 darwin/arm64（同一 arm64 runner 交叉，自动补 clang -target）
+      linux/amd64 windows/amd64（Windows 为 CGO_ENABLED=0，无需 MinGW）
+  - 产物命名统一 Formatter-<版本>-<os>-<arch>，全部落 release/：
+      macOS .dmg（hdiutil 不可用回退 .7z/.zip）/ Linux .tar.gz / Windows .zip
+  - 三方工具由 install-bin 下载到 data/bin/<os>/<arch>/，打包时内嵌进
+      macOS: Contents/Resources/bin  Linux: <包>/bin/tools  Windows: <包>/tools
+EOF
 }
 
 main "$@"

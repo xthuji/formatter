@@ -65,10 +65,10 @@ echo 'def hello(): print("world")' | ./Formatter format --lang auto
 
 ```bash
 ./scripts/run_tools.sh build
-open ./release/Formatter.app
+open ./build/Formatter.app
 ```
 
-构建产物 `release/Formatter.app` 双击即可打开原生窗口。App 提供 3 个功能页面（侧边栏按钮鼠标悬停时显示对应标题提示）：
+构建产物 `build/Formatter.app` 双击即可打开原生窗口（`release/` 仅存放最终分发的 `Formatter-*.dmg`）。App 提供 3 个功能页面（侧边栏按钮鼠标悬停时显示对应标题提示）：
 
 | 页面 | 功能 | tooltip |
 |------|------|---------|
@@ -81,7 +81,7 @@ open ./release/Formatter.app
 构建得到的 App 内部二进制同时支持桌面应用和 CLI 命令：
 
 ```bash
-APP=./release/Formatter.app/Contents/MacOS/Formatter
+APP=./build/Formatter.app/Contents/MacOS/Formatter
 $APP format main.go                       # 格式化
 $APP compress main.js                     # 压缩
 $APP highlight main.py                    # 高亮
@@ -96,6 +96,7 @@ $APP serve                                # 启动 Web UI
 ```
 formatter/
 ├── go.mod / go.sum       # Go 模块
+├── VERSION               # 版本号（唯一数据源，构建时经 ldflags 注入二进制）
 ├── wails.json            # Wails 配置
 ├── data/
 │   ├── embed.go          # //go:embed 配置嵌入 (package data)
@@ -377,7 +378,7 @@ formatter/
 | Linux | amd64 | `CGO_ENABLED=1` | `desktop,production[,webkit2_41]` | `Formatter-<ver>-linux-amd64.tar.gz` | 脚本自动 apt/dnf/pacman/zypper 安装 GTK3 + WebKit2GTK，并探测 4.0/4.1 自动追加 `webkit2_41` tag；包内含 .desktop + 图标 + install.sh |
 | Windows | amd64 | `CGO_ENABLED=0` | `desktop,production` | `Formatter-<ver>-windows-amd64.zip` | go-webview2 动态加载 WebView2Loader.dll，无需 MinGW/gcc；包含 Formatter.exe + config.json + icon.ico + tools/ |
 
-- 三平台产物命名统一为 `Formatter-<版本>-<os>-<arch>.<ext>`，版本取自 `data/version.txt`，输出到 `release/`
+- 三平台产物命名统一为 `Formatter-<版本>-<os>-<arch>.<ext>`，版本取自根目录 `VERSION` 文件（构建时经 ldflags 注入二进制），输出到 `release/`
 - macOS 最低部署版本由脚本统一定为 `12.0`（无需在 CI 设置 `MACOSX_DEPLOYMENT_TARGET`）
 - 构建时调用 `install-bin.sh --bundled-only`，仅拉取需内嵌的 `source=download` 工具（`rubocop` 等 `source=install` 工具不在构建机上安装）
 

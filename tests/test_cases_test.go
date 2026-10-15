@@ -10,16 +10,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/formatter/formatter/src/appcommon"
-	"github.com/formatter/formatter/src/binary"
-	"github.com/formatter/formatter/src/compressor"
-	compressornative "github.com/formatter/formatter/src/compressor/native"
-	compressortool "github.com/formatter/formatter/src/compressor/tool"
-	"github.com/formatter/formatter/src/config"
-	"github.com/formatter/formatter/src/formatter"
-	natfmt "github.com/formatter/formatter/src/formatter/native"
-	formattertool "github.com/formatter/formatter/src/formatter/tool"
-	"github.com/formatter/formatter/src/highlighter"
+	"formatter/src/appcommon"
+	"formatter/src/binary"
+	"formatter/src/compressor"
+	compressornative "formatter/src/compressor/native"
+	compressortool "formatter/src/compressor/tool"
+	"formatter/src/config"
+	"formatter/src/formatter"
+	natfmt "formatter/src/formatter/native"
+	formattertool "formatter/src/formatter/tool"
+	"formatter/src/highlighter"
 )
 
 // ---- 配置化测试用例数据结构 ----
@@ -530,9 +530,8 @@ func TestCases_CLIEndToEnd(t *testing.T) {
 func findAppBinary() string {
 	candidates := []string{
 		"build/bin/formatter",
-		"build/bin/Formatter.app/Contents/MacOS/Formatter",
+		"build/Formatter.app/Contents/MacOS/Formatter",
 		"./formatter",
-		"release/Formatter.app/Contents/MacOS/Formatter",
 	}
 	for _, p := range candidates {
 		if fileExists(p) {

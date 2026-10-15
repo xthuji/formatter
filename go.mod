@@ -1,16 +1,19 @@
-module github.com/formatter/formatter
+module formatter
 
 go 1.26.1
 
 require (
 	github.com/ajitpratap0/GoSQLX v1.14.0
 	github.com/alecthomas/chroma/v2 v2.14.0
+	github.com/magiconair/properties v1.18.11
+	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/schollz/progressbar/v3 v3.14.6
 	github.com/spf13/cobra v1.10.1
 	github.com/tdewolff/minify/v2 v2.24.14
 	github.com/wailsapp/wails/v2 v2.13.0
 	golang.design/x/clipboard v0.8.0
 	golang.org/x/net v0.57.0
+	gopkg.in/ini.v1 v1.67.3
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -31,11 +34,9 @@ require (
 	github.com/leaanthony/gosod v1.0.4 // indirect
 	github.com/leaanthony/slicer v1.6.0 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
-	github.com/magiconair/properties v1.18.11 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
-	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -55,5 +56,4 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
-	gopkg.in/ini.v1 v1.67.3 // indirect
 )

@@ -395,6 +395,9 @@
       initManageTabs();
       loadRuntimeList();
     }
+    if (page === "about") {
+      renderAbout();
+    }
   }
 
   // ---- Language Loading ----
@@ -435,14 +438,11 @@
         el.innerHTML = '<div class="item"><span class="value err">状态加载失败</span></div>';
         return;
       }
-      // 更新版本号显示 (源自 data/version.txt，通过 /api/status 返回)
+      // 更新侧边栏版本号显示 (源自根目录 VERSION，构建时经 ldflags 注入，通过 /api/status 返回)
+      // 关于页字段由 renderAbout() 填充，不在这里跨页操作 DOM
       if (data.version) {
         const appVer = $("appVersion");
         if (appVer) appVer.textContent = "v" + data.version;
-        const aboutTitle = $("aboutTitle");
-        if (aboutTitle) aboutTitle.textContent = "Formatter v" + data.version;
-        const aboutVer = $("aboutVersion");
-        if (aboutVer) aboutVer.textContent = data.version;
       }
       let html = "";
       // 运行平台
@@ -509,6 +509,38 @@
         escapeHtml(e.message) +
         "</span></div>";
     }
+  }
+
+  // ---- About Page ----
+  // 关于页不写死版本/语言数/Go 版本: 运行环境来自 /api/status，能力数值来自已加载的配置，
+  // 新增语言或外部工具后这里会自动跟着变
+  async function renderAbout() {
+    const count = (obj) => Object.keys(obj || {}).length;
+    aboutSet("aboutLangCount", count(currentConfig.languages));
+    aboutSet("aboutToolCount", count(currentConfig.binary?.tools));
+    aboutSet("aboutRuntimeCount", count(currentConfig.binary?.runtimes));
+
+    try {
+      const data = await apiGet("/api/status");
+      if (!data.success) return;
+      aboutSet("aboutVersion", data.version ? "v" + data.version : "-");
+      aboutSet("aboutRuntimeVersion", data.version);
+      aboutSet("aboutGoVersion", data.go_version);
+      aboutSet("aboutPlatform", data.platform);
+      const dirEl = $("aboutBinDir");
+      if (dirEl) {
+        dirEl.textContent = data.install_dir || "-";
+        // 长路径被 CSS 截断显示，完整值靠 title 提示
+        dirEl.title = data.install_dir || "";
+      }
+    } catch (e) {
+      // 状态接口失败时保留占位符，不影响由配置推导的能力数值
+    }
+  }
+
+  function aboutSet(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value === undefined || value === null || value === "" ? "-" : value;
   }
 
   // ---- Binary Management ----

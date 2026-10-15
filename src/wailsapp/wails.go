@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/formatter/formatter/src/appcommon"
-	"github.com/formatter/formatter/src/config"
-	iocore "github.com/formatter/formatter/src/io"
-	"github.com/formatter/formatter/src/ui"
+	"formatter/src/appcommon"
+	"formatter/src/config"
+	iocore "formatter/src/io"
+	"formatter/src/ui"
 )
 
 // 共享类型别名 (保持 Wails 生成的 TypeScript 绑定不变)

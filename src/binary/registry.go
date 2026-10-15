@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/formatter/formatter/src/config"
+	"formatter/src/config"
 )
 
 // ArchiveType 归档类型枚举

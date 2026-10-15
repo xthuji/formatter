@@ -6,7 +6,7 @@ import (
 	"go/format"
 	"strings"
 
-	"github.com/formatter/formatter/src/formatter"
+	"formatter/src/formatter"
 )
 
 // GoFormatter 使用 Go 标准库 go/format 实现代码格式化，

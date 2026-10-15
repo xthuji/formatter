@@ -3,7 +3,7 @@ package appcommon
 import (
 	"fmt"
 
-	iocore "github.com/formatter/formatter/src/io"
+	iocore "formatter/src/io"
 )
 
 // BufferReader 实现 InputReader 接口，从内存字节切片读取输入。

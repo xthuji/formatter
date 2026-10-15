@@ -7,7 +7,7 @@ import (
 	gosqlx "github.com/ajitpratap0/GoSQLX/pkg/gosqlx"
 	sqlfmt "github.com/ajitpratap0/GoSQLX/pkg/formatter"
 	astfmt "github.com/ajitpratap0/GoSQLX/pkg/sql/ast"
-	"github.com/formatter/formatter/src/compressor"
+	"formatter/src/compressor"
 )
 
 // SQLCompressor 使用 GoSQLX 的 CompactStyle 实现 SQL 压缩。

@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/formatter/formatter/src/appcommon"
-	iocore "github.com/formatter/formatter/src/io"
-	"github.com/formatter/formatter/src/pipeline"
+	"formatter/src/appcommon"
+	iocore "formatter/src/io"
+	"formatter/src/pipeline"
 )
 
 //go:embed static

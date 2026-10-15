@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/formatter/formatter/src/compressor"
+	"formatter/src/compressor"
 )
 
 type JSONCompressor struct{}

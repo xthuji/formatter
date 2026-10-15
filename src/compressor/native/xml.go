@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/formatter/formatter/src/compressor"
+	"formatter/src/compressor"
 )
 
 type XMLCompressor struct{}

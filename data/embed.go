@@ -10,8 +10,5 @@ import _ "embed"
 //go:embed config.json
 var ConfigJSON []byte
 
-// VersionText 是 data/version.txt 的嵌入字节切片，
-// 由 main 包启动时通过 appcommon.SetVersion() 注入。
-// version.txt 是全应用唯一的版本号数据源 (Go/前端/构建脚本均从此获取)。
-//go:embed version.txt
-var VersionText []byte
+// 版本号不再在此嵌入：改为项目根目录 VERSION 文件 + 构建时 ldflags 注入
+// (见 scripts/run_tools.sh 的 -X appcommon.Version)，与 xgames 的版本管理方式一致。

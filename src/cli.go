@@ -8,12 +8,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/formatter/formatter/src/appcommon"
-	"github.com/formatter/formatter/src/binary"
-	"github.com/formatter/formatter/src/config"
-	iocore "github.com/formatter/formatter/src/io"
-	"github.com/formatter/formatter/src/pipeline"
-	"github.com/formatter/formatter/src/ui"
+	"formatter/src/appcommon"
+	"formatter/src/binary"
+	"formatter/src/config"
+	iocore "formatter/src/io"
+	"formatter/src/pipeline"
+	"formatter/src/ui"
 )
 
 type GlobalOptions struct {
