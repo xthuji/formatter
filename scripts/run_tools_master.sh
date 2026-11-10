@@ -798,6 +798,12 @@ cmd_build() {
     export GOTOOLCHAIN="$GOTOOLCHAIN_VER"
     log_info "固定工具链: GOTOOLCHAIN=$GOTOOLCHAIN_VER"
   fi
+  # —— 非 UPX 体积优化：项目差异区可声明 GO_BUILD_EXTRA_FLAGS 追加 go build 顶层 flag ——
+  # 典型值: -trimpath -buildvcs=false
+  if [ -n "${GO_BUILD_EXTRA_FLAGS:-}" ]; then
+    export GOFLAGS="${GO_BUILD_EXTRA_FLAGS}"
+    log_info "Go 额外编译 flag: GOFLAGS=$GOFLAGS"
+  fi
 
   # 后端增量：前端重建（go:embed 内容变了）、图标变了或源码有更新才重编，
   # 否则复用已有产物，直接进入配置同步 / 签名 / 打包

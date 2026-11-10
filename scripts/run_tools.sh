@@ -61,9 +61,11 @@ WAILS_PIN_VERSION=""                    # 留空=对齐 go.mod 的 wails 版本�
 NEEDS_CGO=0                   # 1=Windows 构建需要 MinGW-w64
 ADHOC_SIGN=1                      # 1=macOS 构建后 ad-hoc 签名
 GO_BUILD_LDFLAGS="-s -w"
+# 非 UPX 体积优化：go build 顶层 flag（母版 cmd_build 会 export GOFLAGS 透传）
+GO_BUILD_EXTRA_FLAGS="-trimpath -buildvcs=false"
 VERSION_LD_VAR="formatter/src/appcommon.Version"        # 版本注入的 Go 变量（ldflags -X）
 LDFLAGS_EXTRA=""
-GOTOOLCHAIN_VER=""
+GOTOOLCHAIN_VER="go1.26.1"
 
 # --- 资源与配置 ---
 CONFIG_SRC=""
